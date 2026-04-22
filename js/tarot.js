@@ -17,6 +17,11 @@ const SPREADS = {
 // 加载数据
 async function loadTarotData() {
   if (tarotData) return tarotData;
+  // 优先使用预加载的全局缓存（兼容 file:// 协议）
+  if (window.__DATA_CACHE__ && window.__DATA_CACHE__.TAROT_78) {
+    tarotData = window.__DATA_CACHE__.TAROT_78;
+    return tarotData;
+  }
   const res = await fetch('data/tarot-78.json');
   if (!res.ok) throw new Error(`加载塔罗数据失败: ${res.status}`);
   tarotData = await res.json();
@@ -56,10 +61,19 @@ function selectTarotSpread(spread) {
 function showTarotStep(step) {
   ['spread', 'question', 'animation', 'result'].forEach(s => {
     const el = document.getElementById('tarot-step-' + s);
-    if (el) el.style.display = 'none';
+    if (el) {
+      el.style.display = 'none';
+      el.classList.remove('step-container');
+    }
   });
   const target = document.getElementById('tarot-step-' + step);
-  if (target) target.style.display = 'block';
+  if (target) {
+    target.style.display = 'block';
+    if (step !== 'animation' && step !== 'result') {
+      void target.offsetWidth;
+      target.classList.add('step-container');
+    }
+  }
 }
 
 function tarotPrevStep() {
@@ -69,10 +83,6 @@ function tarotPrevStep() {
 // 开始抽牌
 async function startTarotDivination() {
   tarotQuestion = document.getElementById('tarot-question').value.trim();
-  if (!tarotQuestion) {
-    showToast('请输入你想问的问题', 'error');
-    return;
-  }
   
   await loadTarotData();
   
@@ -140,7 +150,7 @@ function showTarotResult() {
   const spread = SPREADS[selectedSpread];
   
   document.getElementById('result-tarot-spread-name').textContent = spread.name;
-  document.getElementById('result-tarot-title').textContent = `"${tarotQuestion}"`;
+  document.getElementById('result-tarot-title').textContent = tarotQuestion ? `"${tarotQuestion}"` : '命运的指引';
   
   // 渲染牌阵
   const spreadDisplay = document.getElementById('tarot-spread-display');

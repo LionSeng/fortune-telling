@@ -10,6 +10,11 @@ let iChingQuestion = '';
 // 加载数据
 async function loadIChingData() {
   if (iChingData) return iChingData;
+  // 优先使用预加载的全局缓存（兼容 file:// 协议）
+  if (window.__DATA_CACHE__ && window.__DATA_CACHE__.ICHING_64) {
+    iChingData = window.__DATA_CACHE__.ICHING_64;
+    return iChingData;
+  }
   const res = await fetch('data/i-ching-64.json');
   if (!res.ok) throw new Error(`加载周易数据失败: ${res.status}`);
   iChingData = await res.json();
@@ -92,11 +97,21 @@ function showIChingStep(step) {
   const steps = ['choose', 'selector', 'question', 'animation', 'result'];
   steps.forEach(s => {
     const el = document.getElementById('iching-step-' + s);
-    if (el) el.style.display = 'none';
+    if (el) {
+      el.style.display = 'none';
+      el.classList.remove('step-container');
+    }
   });
   
   const target = document.getElementById('iching-step-' + step);
-  if (target) target.style.display = 'block';
+  if (target) {
+    target.style.display = 'block';
+    // 触发步骤入场动画（跳过 animation 和 result，它们有自己的动画）
+    if (step !== 'animation' && step !== 'result') {
+      void target.offsetWidth; // 强制 reflow
+      target.classList.add('step-container');
+    }
+  }
 }
 
 // 上一步
@@ -111,10 +126,6 @@ function ichingPrevStep() {
 // 开始起卦
 async function startIChingDivination() {
   iChingQuestion = document.getElementById('iching-question').value.trim();
-  if (!iChingQuestion) {
-    showToast('请输入你想问的问题', 'error');
-    return;
-  }
   
   if (!selectedIChingMethod) {
     showToast('请先选择起卦方式', 'error');
@@ -185,49 +196,86 @@ function startIChingAnimation() {
   const animText = document.getElementById('iching-animation-text');
   const stageEl = document.getElementById('iching-stage');
   
-  // 双重 rAF + setTimeout 确保布局完成
   requestAnimationFrame(() => {
     requestAnimationFrame(() => {
-      AnimationEngine.initInk('stage-canvas');
+      const isCoin = selectedIChingMethod === 'coin';
       
-      // 安全兜底：如果 canvas 尺寸为 0，手动设置
-      if (AnimationEngine.inkCanvas.width < 100 || AnimationEngine.inkCanvas.height < 100) {
-        AnimationEngine.inkCanvas.width = Math.max(stageEl.clientWidth, 600);
-        AnimationEngine.inkCanvas.height = Math.max(stageEl.clientHeight, 400);
-      }
-      
-      console.log('Canvas size:', AnimationEngine.inkCanvas.width, 'x', AnimationEngine.inkCanvas.height);
-      
-      const phases = [
-        { text: '静心凝神...', duration: 800 },
-        { text: '天地之气交汇...', duration: 1000 },
-        { text: '卦象成形中...', duration: 1200 },
-      ];
-      
-      let phaseIdx = 0;
-      animText.textContent = phases[0].text;
-      
-      AnimationEngine.startInkAnimation({
-        onPhaseChange(phase) {
-          phaseIdx++;
-          if (phases[phaseIdx]) {
-            animText.textContent = phases[phaseIdx].text;
-          }
-        },
-        onComplete() {
-          AnimationEngine.stopInk();
-          showIChingResult();
+      if (isCoin) {
+        // 铜钱起卦 → 铜钱动画
+        AnimationEngine.initCoin('stage-canvas');
+        const cc = AnimationEngine.coinCanvas;
+        if (cc.width < 100 || cc.height < 100) {
+          cc.width = Math.max(stageEl.clientWidth, 600);
+          cc.height = Math.max(stageEl.clientHeight, 400);
         }
-      });
+
+        const phases = [
+          { text: '三枚铜钱，六次起卦...', duration: 800 },
+          { text: '铜钱落地，卦爻初成...', duration: 1000 },
+          { text: '乾坤定矣，卦象显现...', duration: 1200 },
+        ];
+        let phaseIdx = 0;
+        animText.textContent = phases[0].text;
+
+        AnimationEngine.startCoinAnimation({
+          onPhaseChange(phase) {
+            if (phase === 'converge') phaseIdx = 1;
+            if (phase === 'settle') phaseIdx = 2;
+            if (phases[phaseIdx]) {
+              animText.textContent = phases[phaseIdx].text;
+            }
+          },
+          onComplete() {
+            AnimationEngine.stopCoin();
+            showIChingResult();
+          }
+        });
+      } else {
+        // 随机/手动 → 水墨动画
+        AnimationEngine.initInk('stage-canvas');
+        if (AnimationEngine.inkCanvas.width < 100 || AnimationEngine.inkCanvas.height < 100) {
+          AnimationEngine.inkCanvas.width = Math.max(stageEl.clientWidth, 600);
+          AnimationEngine.inkCanvas.height = Math.max(stageEl.clientHeight, 400);
+        }
+
+        const phases = [
+          { text: '静心凝神...', duration: 800 },
+          { text: '天地之气交汇...', duration: 1000 },
+          { text: '卦象成形中...', duration: 1200 },
+        ];
+        let phaseIdx = 0;
+        animText.textContent = phases[0].text;
+
+        AnimationEngine.startInkAnimation({
+          onPhaseChange(phase) {
+            phaseIdx++;
+            if (phases[phaseIdx]) {
+              animText.textContent = phases[phaseIdx].text;
+            }
+          },
+          onComplete() {
+            AnimationEngine.stopInk();
+            showIChingResult();
+          }
+        });
+      }
     });
   });
 }
 
 // 显示结果
 function showIChingResult() {
-  showIChingStep('result');
-  
-  const hex = currentHexagram;
+  try {
+    showIChingStep('result');
+
+    if (!currentHexagram) {
+      console.error('[IChing] currentHexagram is null, cannot show result');
+      showToast('起卦结果异常，请重试', 'error');
+      showIChingStep('choose');
+      return;
+    }
+    
+    const hex = currentHexagram;
   
   document.getElementById('result-iching-symbol').textContent = hex.symbol;
   document.getElementById('result-iching-name').textContent = `第${hex.number}卦 · ${hex.name} · ${hex.english}`;
@@ -279,6 +327,10 @@ function showIChingResult() {
   // 隐藏之前的 AI 解读
   document.getElementById('iching-ai-reading').style.display = 'none';
   document.getElementById('iching-ai-body').textContent = '';
+  } catch (err) {
+    console.error('[IChing] showIChingResult error:', err);
+    showToast('结果显示异常: ' + err.message, 'error');
+  }
 }
 
 // 重置
@@ -293,5 +345,6 @@ function resetIChing() {
   });
   
   AnimationEngine.stopInk();
+  AnimationEngine.stopCoin();
   showIChingStep('choose');
 }

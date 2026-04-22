@@ -32,9 +32,9 @@
   --transition-fast: 0.2s cubic-bezier(0.16, 1, 0.3, 1);
   --transition-normal: 0.4s cubic-bezier(0.16, 1, 0.3, 1);
   --transition-slow: 0.8s cubic-bezier(0.16, 1, 0.3, 1);
-  --font-display: 'Noto Serif SC', 'Georgia', serif;
-  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+  --font-display: 'Noto Serif SC', 'Georgia', 'STSong', serif;
+  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'SF Mono', 'Cascadia Code', monospace;
 }
 
 [data-theme="light"] {
@@ -110,6 +110,38 @@ body {
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
+  }
+}
+
+/* 页面退出动画 */
+.page-out {
+  animation: pageOut 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes pageOut {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.99);
+  }
+}
+
+/* 步骤切换过渡 */
+.step-container {
+  animation: stepIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes stepIn {
+  from {
+    opacity: 0;
+    transform: translateX(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
   }
 }
 
@@ -489,7 +521,8 @@ body {
 #stage-canvas,
 #stage-canvas-tarot,
 #stage-canvas-astro,
-#stage-canvas-bazi {
+#stage-canvas-bazi,
+#stage-canvas-ziwei {
   position: absolute;
   inset: 0;
   width: 100%;
@@ -2323,5 +2356,539 @@ body {
   .bazi-canggan {
     font-size: 0.55rem;
     min-width: 24px;
+  }
+}
+
+/* ============================================
+   每日神谕
+   ============================================ */
+
+/* --- 每日徽章 --- */
+.badge-daily {
+  background: linear-gradient(135deg, var(--accent-gold), #e8c46a);
+  color: #1a1a2e;
+}
+
+/* --- 首页每日卡片 --- */
+.daily-home-card {
+  width: 100%;
+  max-width: 800px;
+  margin-bottom: 1rem;
+}
+
+.daily-home-card[data-type="daily"]::before {
+  background: radial-gradient(ellipse at 50% 30%, var(--accent-gold-glow), transparent 70%);
+}
+
+.daily-home-card[data-type="daily"]:hover {
+  box-shadow: 0 0 40px rgba(212, 168, 70, 0.2), var(--shadow-medium);
+}
+
+/* 未开启状态 */
+.daily-card-unopened {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem 0;
+}
+
+.daily-card-glow {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 80px;
+  height: 80px;
+  transform: translate(-50%, -60%);
+  background: radial-gradient(circle, var(--accent-gold-glow), transparent 70%);
+  border-radius: 50%;
+  animation: dailyPulse 3s ease-in-out infinite;
+  pointer-events: none;
+}
+
+@keyframes dailyPulse {
+  0%, 100% { opacity: 0.5; transform: translate(-50%, -60%) scale(1); }
+  50% { opacity: 1; transform: translate(-50%, -60%) scale(1.3); }
+}
+
+.daily-card-icon {
+  font-size: 2.5rem;
+  color: var(--accent-gold);
+  text-shadow: 0 0 20px var(--accent-gold-glow);
+  animation: dailyIconFloat 4s ease-in-out infinite;
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes dailyIconFloat {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+.daily-card-title {
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, var(--accent-gold), #e8c46a);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  position: relative;
+  z-index: 1;
+}
+
+.daily-card-desc {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  position: relative;
+  z-index: 1;
+}
+
+/* 已开启预览状态 */
+.daily-card-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.daily-preview-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.daily-preview-icon {
+  font-size: 1.8rem;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-card-hover);
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+}
+
+.daily-preview-info {
+  text-align: left;
+  flex: 1;
+}
+
+.daily-preview-label {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  margin-bottom: 0.15rem;
+}
+
+.daily-preview-value {
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.daily-card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 0.75rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border-color);
+}
+
+.daily-card-date {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.daily-card-hint {
+  font-size: 0.75rem;
+  color: var(--accent-gold);
+}
+
+/* --- 详情弹层 --- */
+.daily-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: none;
+  opacity: 0;
+  transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.daily-overlay.open {
+  display: block;
+  opacity: 1;
+}
+
+.daily-overlay-bg {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+.daily-detail-scroll {
+  position: relative;
+  z-index: 1;
+  height: 100%;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 1rem;
+  display: flex;
+  justify-content: center;
+}
+
+.daily-detail-content {
+  width: 100%;
+  max-width: 600px;
+  padding: 1rem;
+}
+
+.daily-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+}
+
+.daily-loading-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid var(--border-color);
+  border-top-color: var(--accent-gold);
+  border-radius: 50%;
+  animation: dailySpin 0.8s linear infinite;
+}
+
+@keyframes dailySpin {
+  to { transform: rotate(360deg); }
+}
+
+/* --- 详情内容 --- */
+.daily-detail {
+  position: relative;
+}
+
+.daily-close-btn {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  float: right;
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--border-color);
+  border-radius: 50%;
+  background: var(--bg-card);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  color: var(--text-secondary);
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.daily-close-btn:hover {
+  border-color: var(--border-glow);
+  color: var(--text-primary);
+  background: var(--bg-card-hover);
+}
+
+.daily-detail-header {
+  text-align: center;
+  margin-bottom: 1.5rem;
+  padding-top: 1rem;
+}
+
+.daily-detail-date {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-bottom: 0.5rem;
+}
+
+.daily-detail-title {
+  font-family: var(--font-display);
+  font-size: 1.6rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, var(--accent-east), var(--accent-gold), var(--accent-west));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* 综合寄语 */
+.daily-fortune-banner {
+  background: linear-gradient(135deg, var(--accent-gold-glow), var(--accent-east-glow));
+  border: 1px solid rgba(212, 168, 70, 0.2);
+  border-radius: var(--radius-md);
+  padding: 1.25rem;
+  margin-bottom: 2rem;
+  text-align: center;
+}
+
+.daily-fortune-text {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  line-height: 1.8;
+  color: var(--text-primary);
+}
+
+/* 分区 */
+.daily-section {
+  margin-bottom: 2rem;
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1), transform 0.6s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.daily-section-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.daily-section-label {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 1rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border-color);
+}
+
+/* 周易卡片 */
+.daily-iching-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+.daily-iching-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.daily-iching-symbol {
+  font-size: 2.5rem;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.daily-iching-name {
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.daily-iching-english {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-top: 0.15rem;
+}
+
+.daily-iching-meaning {
+  font-size: 0.8rem;
+  color: var(--accent-gold);
+  margin-top: 0.25rem;
+}
+
+/* 卦象爻线 */
+.daily-iching-lines {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  margin: 1rem 0;
+  padding: 0.75rem 0;
+  border-top: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.daily-hex-line {
+  height: 4px;
+  border-radius: 2px;
+  transition: all 0.3s;
+}
+
+.daily-hex-yang {
+  width: 60px;
+  background: linear-gradient(90deg, var(--accent-east), var(--accent-gold));
+  box-shadow: 0 0 8px var(--accent-east-glow);
+}
+
+.daily-hex-yin {
+  width: 60px;
+  background: transparent;
+  position: relative;
+}
+
+.daily-hex-yin::before,
+.daily-hex-yin::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  height: 4px;
+  width: 24px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--accent-east), var(--accent-gold));
+  box-shadow: 0 0 8px var(--accent-east-glow);
+}
+
+.daily-hex-yin::before { left: 0; }
+.daily-hex-yin::after { right: 0; }
+
+.daily-iching-text {
+  font-size: 0.85rem;
+  line-height: 1.8;
+  color: var(--text-secondary);
+}
+
+.daily-iching-text p {
+  margin-bottom: 0.5rem;
+}
+
+.daily-iching-advice {
+  margin-top: 1rem;
+  padding: 0.75rem 1rem;
+  background: rgba(212, 168, 70, 0.08);
+  border-left: 3px solid var(--accent-gold);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  font-size: 0.85rem;
+  color: var(--text-primary);
+}
+
+/* 塔罗双牌 */
+.daily-tarot-pair {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+}
+
+.daily-tarot-item {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 1.25rem;
+  text-align: center;
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  transition: all var(--transition-normal);
+}
+
+.daily-tarot-item:hover {
+  border-color: var(--border-glow);
+  transform: translateY(-2px);
+}
+
+.daily-tarot-item.reversed {
+  border-color: rgba(197, 61, 67, 0.3);
+}
+
+.daily-tarot-position {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  margin-bottom: 0.75rem;
+}
+
+.daily-tarot-card-display {
+  margin-bottom: 0.75rem;
+}
+
+.daily-tarot-symbol {
+  font-size: 2rem;
+  margin-bottom: 0.25rem;
+}
+
+.daily-tarot-name {
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.daily-tarot-orient {
+  font-size: 0.7rem;
+  margin-top: 0.15rem;
+}
+
+.orient-up {
+  color: var(--accent-gold);
+}
+
+.orient-rev {
+  color: var(--accent-east);
+}
+
+.daily-tarot-keywords {
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.75rem;
+}
+
+.daily-tarot-reading {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  line-height: 1.7;
+  text-align: left;
+}
+
+/* 关键词标签 */
+.daily-keywords {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: center;
+  margin-bottom: 1.5rem;
+}
+
+.daily-keyword-tag {
+  padding: 0.25rem 0.75rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 100px;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  transition: all var(--transition-fast);
+}
+
+.daily-keyword-tag:hover {
+  border-color: var(--accent-gold);
+  color: var(--accent-gold);
+}
+
+/* 操作按钮 */
+.daily-actions {
+  display: flex;
+  gap: 0.75rem;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+/* --- 响应式 --- */
+@media (max-width: 480px) {
+  .daily-tarot-pair {
+    grid-template-columns: 1fr;
+  }
+
+  .daily-fortune-text {
+    font-size: 0.9rem;
+  }
+
+  .daily-iching-header {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
   }
 }

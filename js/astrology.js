@@ -9,6 +9,11 @@ let astrologyResult = null;
 // 加载数据
 async function loadAstrologyData() {
   if (astrologyData) return astrologyData;
+  // 优先使用预加载的全局缓存（兼容 file:// 协议）
+  if (window.__DATA_CACHE__ && window.__DATA_CACHE__.ASTROLOGY) {
+    astrologyData = window.__DATA_CACHE__.ASTROLOGY;
+    return astrologyData;
+  }
   const res = await fetch('data/astrology-data.json');
   if (!res.ok) throw new Error('加载占星数据失败');
   astrologyData = await res.json();
@@ -138,11 +143,11 @@ function startAstroAnimation() {
 
   requestAnimationFrame(() => {
     requestAnimationFrame(() => {
-      AnimationEngine.initInk('stage-canvas-astro');
+      AnimationEngine.initStars('stage-canvas-astro');
 
-      if (AnimationEngine.inkCanvas.width < 100 || AnimationEngine.inkCanvas.height < 100) {
-        AnimationEngine.inkCanvas.width = Math.max(stageEl.clientWidth, 600);
-        AnimationEngine.inkCanvas.height = Math.max(stageEl.clientHeight, 400);
+      if (AnimationEngine.starCanvas.width < 100 || AnimationEngine.starCanvas.height < 100) {
+        AnimationEngine.starCanvas.width = Math.max(stageEl.clientWidth, 600);
+        AnimationEngine.starCanvas.height = Math.max(stageEl.clientHeight, 400);
       }
 
       const phases = [
@@ -154,7 +159,7 @@ function startAstroAnimation() {
       let phaseIdx = 0;
       animText.textContent = phases[0].text;
 
-      AnimationEngine.startInkAnimation({
+      AnimationEngine.startStarAnimation(1, {
         onPhaseChange(phase) {
           phaseIdx++;
           if (phases[phaseIdx]) {
@@ -162,7 +167,7 @@ function startAstroAnimation() {
           }
         },
         onComplete() {
-          AnimationEngine.stopInk();
+          AnimationEngine.stopStars();
           showAstrologyResult();
         }
       });
@@ -279,10 +284,19 @@ function showAstroStep(step) {
   const steps = ['input', 'animation', 'result'];
   steps.forEach(s => {
     const el = document.getElementById('astro-step-' + s);
-    if (el) el.style.display = 'none';
+    if (el) {
+      el.style.display = 'none';
+      el.classList.remove('step-container');
+    }
   });
   const target = document.getElementById('astro-step-' + step);
-  if (target) target.style.display = 'block';
+  if (target) {
+    target.style.display = 'block';
+    if (step !== 'animation' && step !== 'result') {
+      void target.offsetWidth;
+      target.classList.add('step-container');
+    }
+  }
 }
 
 // 重置

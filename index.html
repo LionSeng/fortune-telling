@@ -11,7 +11,12 @@
   <title>神谕占卜台 | Oracle Divination</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+  <!-- 核心字体优先加载（display 用于标题） -->
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&display=swap">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&display=swap" rel="stylesheet">
+  <!-- 辅助字体异步加载，不阻塞渲染 -->
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400&display=swap" onload="this.rel='stylesheet'">
+  <noscript><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet"></noscript>
   <link rel="stylesheet" href="css/main.css">
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js" defer></script>
 </head>
@@ -92,11 +97,24 @@
     </div>
   </nav>
 
+  <!-- 每日神谕详情弹层 -->
+  <div class="daily-overlay" id="daily-overlay">
+    <div class="daily-overlay-bg" onclick="DailyOracle.closeDetail()"></div>
+    <div class="daily-detail-scroll">
+      <div class="daily-detail-content" id="daily-detail-content"></div>
+    </div>
+  </div>
+
   <!-- ===== 首页 ===== -->
   <div class="page active" id="page-home">
     <div class="home-page">
       <h1 class="home-title">神谕占卜台</h1>
       <p class="home-subtitle">ORACLE DIVINATION</p>
+
+      <!-- 每日神谕卡片（置顶） -->
+      <div class="divination-card daily-home-card" id="daily-card" data-type="daily" onclick="DailyOracle.showDetail()">
+        <!-- 由 JS 动态渲染 -->
+      </div>
 
       <div class="divination-grid">
         <!-- 周易 -->
@@ -174,8 +192,8 @@
       <!-- 步骤 2: 输入问题 -->
       <div id="iching-step-question" style="display:none;">
         <div class="input-section">
-          <label class="input-label">心中所问之事</label>
-          <textarea class="question-input" id="iching-question" placeholder="静心默念你想问的问题...&#10;例如：最近的事业发展如何？这段感情会有好结果吗？"></textarea>
+          <label class="input-label">心中所问之事<span style="color:var(--text-muted);font-weight:400;font-size:0.75rem;margin-left:0.3rem;">（可选）</span></label>
+          <textarea class="question-input" id="iching-question" placeholder="静心默念你想问的问题...&#10;例如：最近的事业发展如何？这段感情会有好结果吗？&#10;&#10;也可以留空，直接开始起卦。"></textarea>
           <div style="margin-top:1rem;display:flex;gap:1rem;">
             <button class="btn-primary btn-ghost" onclick="ichingPrevStep()">上一步</button>
             <button class="btn-primary btn-east" onclick="startIChingDivination()">开始起卦</button>
@@ -250,8 +268,8 @@
       <!-- 步骤 2: 输入问题 -->
       <div id="tarot-step-question" style="display:none;">
         <div class="input-section">
-          <label class="input-label">心中所问之事</label>
-          <textarea class="question-input" id="tarot-question" placeholder="静心默念你想问的问题...&#10;例如：我该选择哪条职业道路？这段关系能长久吗？"></textarea>
+          <label class="input-label">心中所问之事<span style="color:var(--text-muted);font-weight:400;font-size:0.75rem;margin-left:0.3rem;">（可选）</span></label>
+          <textarea class="question-input" id="tarot-question" placeholder="静心默念你想问的问题...&#10;例如：我该选择哪条职业道路？这段关系能长久吗？&#10;&#10;也可以留空，直接开始抽牌。"></textarea>
           <div style="margin-top:1rem;display:flex;gap:1rem;">
             <button class="btn-primary btn-ghost" onclick="tarotPrevStep()">上一步</button>
             <button class="btn-primary btn-west" onclick="startTarotDivination()">开始抽牌</button>
@@ -513,6 +531,15 @@
   <script src="js/theme.js"></script>
   <script src="js/animation.js"></script>
   <script src="js/app.js"></script>
+  <!-- 预加载 JSON 数据为全局变量（兼容 file:// 协议，无需网络请求） -->
+  <script>
+    window.__DATA_CACHE__ = {};
+  </script>
+  <script src="data/i-ching-64.data.js"></script>
+  <script src="data/tarot-78.data.js"></script>
+  <script src="data/astrology-data.data.js"></script>
+  <script src="data/ziwei-data.data.js"></script>
+  <script src="js/daily.js"></script>
   <script src="js/i-ching.js"></script>
   <script src="js/tarot.js"></script>
   <script src="js/ziwei.js"></script>

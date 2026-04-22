@@ -852,10 +852,19 @@ function showBaziStep(step) {
   const steps = ['input', 'animation', 'result'];
   steps.forEach(s => {
     const el = document.getElementById('bazi-step-' + s);
-    if (el) el.style.display = 'none';
+    if (el) {
+      el.style.display = 'none';
+      el.classList.remove('step-container');
+    }
   });
   const target = document.getElementById('bazi-step-' + step);
-  if (target) target.style.display = 'block';
+  if (target) {
+    target.style.display = 'block';
+    if (step !== 'animation' && step !== 'result') {
+      void target.offsetWidth;
+      target.classList.add('step-container');
+    }
+  }
 }
 
 // 重置

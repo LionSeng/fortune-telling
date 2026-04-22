@@ -33,8 +33,10 @@ async function requestAIReading(type) {
   
   // 禁用按钮
   const btn = document.getElementById(`btn-${type}-ai`);
-  btn.disabled = true;
-  btn.innerHTML = '<span class="loading-spinner"></span> 正在解读...';
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<span class="loading-spinner"></span> 正在解读...';
+  }
   
   // 显示 AI 区域
   const aiSection = document.getElementById(`${type}-ai-reading`);
@@ -57,6 +59,27 @@ async function requestAIReading(type) {
     
     model = settings.model || 'deepseek-chat';
     
+    // 构建请求体
+    const requestBody = {
+      model: model,
+      messages: [
+        {
+          role: 'system',
+          content: '你是一位精通东方和西方占卜术的资深占卜师。你擅长将古老的智慧与现代人的生活经验相结合，给出深入浅出、温暖而有洞察力的解读。你的解读风格： poetic yet practical, mystical yet grounded. 用中文回答。'
+        },
+        {
+          role: 'user',
+          content: prompt
+        }
+      ],
+      stream: true,
+      max_tokens: 1500
+    };
+    // deepseek-reasoner 不支持 temperature 参数
+    if (model !== 'deepseek-reasoner') {
+      requestBody.temperature = 0.85;
+    }
+    
     // 调用 API（流式输出）
     const response = await fetch(endpoint, {
       method: 'POST',
@@ -64,22 +87,7 @@ async function requestAIReading(type) {
         'Content-Type': 'application/json',
         'Authorization': `Bearer ${settings.apiKey}`
       },
-      body: JSON.stringify({
-        model: model,
-        messages: [
-          {
-            role: 'system',
-            content: '你是一位精通东方和西方占卜术的资深占卜师。你擅长将古老的智慧与现代人的生活经验相结合，给出深入浅出、温暖而有洞察力的解读。你的解读风格： poetic yet practical, mystical yet grounded. 用中文回答。'
-          },
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
-        stream: true,
-        temperature: 0.85,
-        max_tokens: 1500
-      })
+      body: JSON.stringify(requestBody)
     });
     
     if (!response.ok) {
@@ -90,6 +98,8 @@ async function requestAIReading(type) {
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let fullText = '';
+    let reasoningText = '';
+    let isReasoning = false;
     
     while (true) {
       const { done, value } = await reader.read();
@@ -105,10 +115,22 @@ async function requestAIReading(type) {
           
           try {
             const parsed = JSON.parse(data);
-            const content = parsed.choices?.[0]?.delta?.content || '';
-            if (content) {
-              fullText += content;
-              aiBody.innerHTML = formatAIText(fullText) + '<span class="typing-cursor"></span>';
+            const delta = parsed.choices?.[0]?.delta || {};
+            
+            // reasoner 模型：先输出 reasoning_content（思考过程），再输出 content（最终回答）
+            if (delta.reasoning_content) {
+              isReasoning = true;
+              reasoningText += delta.reasoning_content;
+              aiBody.innerHTML = `<div class="ai-reasoning" style="color:var(--text-muted);font-size:0.85rem;margin-bottom:0.75rem;padding:0.5rem;border-left:2px solid var(--accent-west);opacity:0.7;"><strong>🔮 思考中...</strong><br>${formatAIText(reasoningText)}</div>` + (fullText ? formatAIText(fullText) : '') + '<span class="typing-cursor"></span>';
+            }
+            if (delta.content) {
+              if (isReasoning) {
+                // 思考结束，开始正式回答
+                aiBody.innerHTML = `<details class="ai-reasoning-toggle" style="margin-bottom:0.75rem;"><summary style="cursor:pointer;color:var(--text-muted);font-size:0.85rem;">💭 查看思考过程</summary><div style="color:var(--text-muted);font-size:0.85rem;padding:0.5rem 0;">${formatAIText(reasoningText)}</div></details>`;
+                isReasoning = false;
+              }
+              fullText += delta.content;
+              aiBody.innerHTML = aiBody.innerHTML.replace(/<span class="typing-cursor"><\/span>$/, '') + formatAIText(fullText) + '<span class="typing-cursor"></span>';
             }
           } catch (e) {
             // 忽略解析错误
@@ -117,8 +139,11 @@ async function requestAIReading(type) {
       }
     }
     
-    // 移除光标
-    aiBody.innerHTML = formatAIText(fullText);
+    // 移除光标，保留思考过程（如果有的话）
+    const finalReasoning = reasoningText 
+      ? `<details class="ai-reasoning-toggle" style="margin-bottom:0.75rem;"><summary style="cursor:pointer;color:var(--text-muted);font-size:0.85rem;">💭 查看思考过程</summary><div style="color:var(--text-muted);font-size:0.85rem;padding:0.5rem 0;">${formatAIText(reasoningText)}</div></details>` 
+      : '';
+    aiBody.innerHTML = finalReasoning + formatAIText(fullText);
     
   } catch (error) {
     console.error('AI 解读失败:', error);
@@ -130,27 +155,31 @@ async function requestAIReading(type) {
         : 'https://api.deepseek.com/v1/chat/completions';
       const model = settings.model || 'deepseek-chat';
       
+      const fallbackBody = {
+        model: model,
+        messages: [
+          {
+            role: 'system',
+            content: '你是一位精通东方和西方占卜术的资深占卜师。你擅长将古老的智慧与现代人的生活经验相结合，给出深入浅出、温暖而有洞察力的解读。用中文回答。'
+          },
+          {
+            role: 'user',
+            content: prompt
+          }
+        ],
+        max_tokens: 1500
+      };
+      if (model !== 'deepseek-reasoner') {
+        fallbackBody.temperature = 0.85;
+      }
+      
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${settings.apiKey}`
         },
-        body: JSON.stringify({
-          model: model,
-          messages: [
-            {
-              role: 'system',
-              content: '你是一位精通东方和西方占卜术的资深占卜师。你擅长将古老的智慧与现代人的生活经验相结合，给出深入浅出、温暖而有洞察力的解读。用中文回答。'
-            },
-            {
-              role: 'user',
-              content: prompt
-            }
-          ],
-          temperature: 0.85,
-          max_tokens: 1500
-        })
+        body: JSON.stringify(fallbackBody)
       });
       
       const data = await response.json();
@@ -162,8 +191,10 @@ async function requestAIReading(type) {
     }
   } finally {
     // 恢复按钮
-    btn.disabled = false;
-    btn.innerHTML = '🔮 AI 深度解读';
+    if (btn) {
+      btn.disabled = false;
+      btn.innerHTML = '🔮 AI 深度解读';
+    }
   }
 }
 
@@ -324,6 +355,45 @@ ${r.strength.desc}
 7. 温暖有力的总结建议
 
 请用专业但温暖的语调，将传统八字智慧与现代人生活结合，避免过于晦涩。`;
+  }
+
+  if (type === 'daily') {
+    const cache = JSON.parse(localStorage.getItem('divination-daily') || '{}');
+    if (!cache.iching || !cache.tarot) {
+      return '请提供今日占卜信息。';
+    }
+    const hex = cache.iching;
+    const cards = cache.tarot;
+
+    return `请为以下"今日神谕"进行深度解读。这是一个每日占卜，将周易卦象与塔罗牌的智慧融合，为用户今天的运势和行动提供指引。
+
+**今日日期：** ${cache.date}
+
+**今日卦象：**
+- 第${hex.number}卦：${hex.name}（${hex.english}）${hex.symbol}
+- 含义：${hex.meaning}
+- 卦辞：${hex.judgment}
+- 象辞：${hex.image}
+- 建议：${hex.advice}
+- 关键词：${hex.keywords.join('、')}
+
+**今日指引塔罗牌：**
+${cards.map((c, i) => `第${i + 1}张（${c.position}）：${c.name}${c.isReversed ? '（逆位）' : '（正位）'}
+- 关键词：${c.keywords}
+- 解读：${c.reading}`).join('\n\n')}
+
+**综合寄语：** ${cache.fortune || ''}
+
+请提供一份 500-700 字的今日运势深度解读，包括：
+1. 今日整体运势基调（结合卦象和塔罗的整体氛围）
+2. 事业/学业方面今天的重点和建议
+3. 人际关系和感情方面的提醒
+4. 财运方面的指引
+5. 健康和情绪管理的建议
+6. 今日幸运提示（幸运色、幸运数字、适合做的事）
+7. 一句温暖的今日寄语
+
+请用温暖、有洞察力的语调，如同一位贴心的占卜师在每天早晨为你解读今日的宇宙讯息。`;
   }
 }
 

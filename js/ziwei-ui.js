@@ -27,6 +27,11 @@ const SHICHEN_LIST = [
 // 加载星曜数据
 async function loadZiweiData() {
   if (ziweiData) return ziweiData;
+  // 优先使用预加载的全局缓存（兼容 file:// 协议）
+  if (window.__DATA_CACHE__ && window.__DATA_CACHE__.ZIWEI) {
+    ziweiData = window.__DATA_CACHE__.ZIWEI;
+    return ziweiData;
+  }
   const res = await fetch('data/ziwei-data.json');
   if (!res.ok) throw new Error('加载紫微斗数数据失败');
   ziweiData = await res.json();
@@ -63,10 +68,19 @@ function selectGender(gender) {
 function showZiweiStep(step) {
   ['input', 'animation', 'result'].forEach(s => {
     const el = document.getElementById('ziwei-step-' + s);
-    if (el) el.style.display = 'none';
+    if (el) {
+      el.style.display = 'none';
+      el.classList.remove('step-container');
+    }
   });
   const target = document.getElementById('ziwei-step-' + step);
-  if (target) target.style.display = 'block';
+  if (target) {
+    target.style.display = 'block';
+    if (step !== 'animation' && step !== 'result') {
+      void target.offsetWidth;
+      target.classList.add('step-container');
+    }
+  }
 }
 
 // 开始排盘

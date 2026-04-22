@@ -6,36 +6,55 @@ let currentPage = 'home';
 let bgAnimation = null;
 
 // 页面导航
+let _pageTransitioning = false;
 function navigateTo(pageName) {
-  // 隐藏所有页面
-  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
-  
-  // 显示目标页面
+  if (_pageTransitioning || pageName === currentPage) return;
+  _pageTransitioning = true;
+
+  const currentEl = document.getElementById('page-' + currentPage);
   const target = document.getElementById('page-' + pageName);
-  if (target) {
-    target.classList.add('active');
+  
+  // 当前页面退出动画
+  if (currentEl && currentEl.classList.contains('active')) {
+    currentEl.classList.add('page-out');
+    currentEl.classList.remove('active');
   }
   
-  currentPage = pageName;
+  // 等退出动画结束后显示新页面
+  const transitionDelay = (currentEl && pageName !== 'home') ? 200 : 50;
   
-  // 切换背景粒子风格
-  updateBgParticles(pageName);
-  
-  // 重置子页面状态
-  if (pageName === 'i-ching') resetIChing();
-  if (pageName === 'tarot') resetTarot();
-  if (pageName === 'ziwei') resetZiwei();
-  if (pageName === 'astrology') { resetAstrology(); initAstroDatePicker(); }
-  if (pageName === 'bazi') { resetBazi(); initBaziShichen(); }
-  
-  // 滚动到顶部
-  window.scrollTo(0, 0);
+  setTimeout(() => {
+    // 清理旧页面的退出类
+    document.querySelectorAll('.page').forEach(p => {
+      p.classList.remove('active', 'page-out');
+    });
+    
+    if (target) {
+      target.classList.add('active');
+    }
+    
+    currentPage = pageName;
+    _pageTransitioning = false;
+    
+    // 切换背景粒子风格
+    updateBgParticles(pageName);
+    
+    // 重置子页面状态
+    if (pageName === 'i-ching') resetIChing();
+    if (pageName === 'tarot') resetTarot();
+    if (pageName === 'ziwei') resetZiwei();
+    if (pageName === 'astrology') { resetAstrology(); initAstroDatePicker(); }
+    if (pageName === 'bazi') { resetBazi(); initBaziShichen(); }
+    
+    // 滚动到顶部
+    window.scrollTo(0, 0);
 
-  // 更新底部导航高亮
-  updateBottomNav(pageName);
+    // 更新底部导航高亮
+    updateBottomNav(pageName);
 
-  // 非首页时隐藏底部导航
-  updateBottomNavVisibility(pageName);
+    // 非首页时隐藏底部导航
+    updateBottomNavVisibility(pageName);
+  }, transitionDelay);
 }
 
 // 更新底部导航高亮

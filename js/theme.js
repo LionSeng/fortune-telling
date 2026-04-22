@@ -69,8 +69,21 @@
   }
 
   // 获取设置（供其他模块调用）
+  // 占位符由 build.sh 构建，本地开发时填写 .env 或在设置面板中配置
+  const DEFAULT_SETTINGS = {
+    provider: '__AI_PROVIDER__',
+    apiKey: '__AI_API_KEY__',
+    model: '__AI_MODEL__'
+  };
+
   window.getAppSettings = function() {
-    return JSON.parse(localStorage.getItem('divination-settings') || '{}');
+    const saved = JSON.parse(localStorage.getItem('divination-settings') || '{}');
+    const merged = { ...DEFAULT_SETTINGS, ...saved };
+    // 如果占位符未被替换，且用户也没配，则清空 apiKey 防止无效请求
+    if (merged.apiKey === '__AI_API_KEY__' && !saved.apiKey) {
+      merged.apiKey = '';
+    }
+    return merged;
   };
 })();
 
