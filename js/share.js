@@ -19,58 +19,59 @@ async function shareResult(elementId) {
   showToast('正在生成分享图片...', '');
 
   try {
-    // 获取当前主题的 CSS 变量值，供克隆元素使用
+    // 获取当前主题的 CSS 变量值
     const rootStyle = getComputedStyle(document.documentElement);
-    const themeVars = {
-      '--bg-primary': rootStyle.getPropertyValue('--bg-primary').trim(),
-      '--bg-secondary': rootStyle.getPropertyValue('--bg-secondary').trim(),
-      '--bg-card': rootStyle.getPropertyValue('--bg-card').trim(),
-      '--text-primary': rootStyle.getPropertyValue('--text-primary').trim(),
-      '--text-secondary': rootStyle.getPropertyValue('--text-secondary').trim(),
-      '--text-muted': rootStyle.getPropertyValue('--text-muted').trim(),
-      '--accent-gold': rootStyle.getPropertyValue('--accent-gold').trim(),
-      '--border-color': rootStyle.getPropertyValue('--border-color').trim(),
-      '--accent-purple': rootStyle.getPropertyValue('--accent-purple').trim(),
-      '--accent-cyan': rootStyle.getPropertyValue('--accent-cyan').trim(),
-    };
+    const bgColor = rootStyle.getPropertyValue('--bg-primary').trim() || '#0a0a0f';
 
-    // 创建分享容器（添加品牌水印）
-    const shareWrapper = document.createElement('div');
-    shareWrapper.className = 'share-capture-wrapper';
-    shareWrapper.appendChild(element.cloneNode(true));
-
-    // 添加品牌水印
-    const watermark = document.createElement('div');
-    watermark.className = 'share-watermark';
-    watermark.innerHTML = `
-      <div class="share-watermark-brand">神谕占卜台</div>
-      <div class="share-watermark-sub">Oracle Divination</div>
-    `;
-    shareWrapper.appendChild(watermark);
-
-    // 临时添加到 DOM — 用 clip 裁剪而非 opacity:0 隐藏（html2canvas 不渲染透明元素）
-    shareWrapper.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;pointer-events:none;z-index:-1;clip:rect(0,0,0,0);';
-    // 注入当前主题变量，确保克隆元素的样式正确
-    Object.entries(themeVars).forEach(([k, v]) => {
-      if (v) shareWrapper.style.setProperty(k, v);
-    });
-    document.body.appendChild(shareWrapper);
-
-    // 截图
-    const canvas = await html2canvas(shareWrapper, {
-      backgroundColor: themeVars['--bg-primary'] || '#0a0a0f',
+    // 直接截图原始元素（不克隆），避免样式丢失
+    const canvas = await html2canvas(element, {
+      backgroundColor: bgColor,
       scale: 2,
       useCORS: true,
       logging: false,
-      // 确保渲染隐藏区域
-      ignoreElements: (el) => false,
     });
 
-    // 移除临时元素
-    document.body.removeChild(shareWrapper);
+    // 在截图 canvas 上追加品牌水印
+    const ctx = canvas.getContext('2d');
+    const watermarkY = canvas.height + 40;
+    const totalHeight = canvas.height + 80;
+
+    // 创建新 canvas，包含水印区域
+    const finalCanvas = document.createElement('canvas');
+    finalCanvas.width = canvas.width;
+    finalCanvas.height = totalHeight;
+    const fCtx = finalCanvas.getContext('2d');
+
+    // 绘制背景
+    fCtx.fillStyle = bgColor;
+    fCtx.fillRect(0, 0, finalCanvas.width, finalCanvas.height);
+
+    // 绘制原始截图
+    fCtx.drawImage(canvas, 0, 0);
+
+    // 绘制分隔线
+    const goldColor = rootStyle.getPropertyValue('--accent-gold').trim() || '#d4a853';
+    fCtx.strokeStyle = goldColor;
+    fCtx.lineWidth = 1;
+    fCtx.beginPath();
+    fCtx.moveTo(finalCanvas.width * 0.15, canvas.height + 20);
+    fCtx.lineTo(finalCanvas.width * 0.85, canvas.height + 20);
+    fCtx.stroke();
+
+    // 绘制品牌文字
+    const mutedColor = rootStyle.getPropertyValue('--text-muted').trim() || '#888';
+    fCtx.textAlign = 'center';
+
+    fCtx.font = `600 ${Math.round(finalCanvas.width * 0.035)}px sans-serif`;
+    fCtx.fillStyle = goldColor;
+    fCtx.fillText('神谕占卜台', finalCanvas.width / 2, canvas.height + 48);
+
+    fCtx.font = `${Math.round(finalCanvas.width * 0.02)}px sans-serif`;
+    fCtx.fillStyle = mutedColor;
+    fCtx.fillText('Oracle Divination', finalCanvas.width / 2, canvas.height + 68);
 
     // 转为图片
-    const dataUrl = canvas.toDataURL('image/png');
+    const dataUrl = finalCanvas.toDataURL('image/png');
 
     // 显示分享面板
     showSharePanel(dataUrl);

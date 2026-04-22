@@ -1693,35 +1693,7 @@ body {
    分享功能样式
    ============================================ */
 
-/* 截图水印 */
-.share-capture-wrapper {
-  padding: 1.5rem;
-  background: var(--bg-primary);
-}
-
-.share-watermark {
-  text-align: center;
-  margin-top: 1.5rem;
-  padding-top: 1rem;
-  border-top: 1px solid var(--border-color);
-}
-
-.share-watermark-brand {
-  font-family: var(--font-display);
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--accent-gold);
-  letter-spacing: 0.15em;
-}
-
-.share-watermark-sub {
-  font-size: 0.7rem;
-  color: var(--text-muted);
-  letter-spacing: 0.3em;
-  margin-top: 0.15rem;
-}
-
-/* 分享面板 */
+/* 分享面板（水印由 canvas API 绘制，无需 DOM 样式） */
 .share-panel {
   background: var(--bg-secondary);
   border: 1px solid var(--border-color);
