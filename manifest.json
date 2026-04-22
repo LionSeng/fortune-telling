@@ -1,0 +1,19 @@
+{
+  "name": "神谕占卜台",
+  "short_name": "神谕",
+  "description": "东方周易 × 西方塔罗 × 紫微斗数 — 命运尽在指尖",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0a0a0f",
+  "theme_color": "#d4a846",
+  "icons": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'><rect width='512' height='512' rx='64' fill='%230a0a0f'/><text x='256' y='340' text-anchor='middle' font-size='280'>☯</text></svg>",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["lifestyle", "entertainment"]
+}

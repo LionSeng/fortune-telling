@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#d4a846">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="description" content="神谕占卜台 — 周易 × 塔罗 × 紫微斗数 × 占星术 × 四柱八字，命运尽在指尖">
+  <link rel="manifest" href="manifest.json">
+  <title>神谕占卜台 | Oracle Divination</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/main.css">
+  <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js" defer></script>
+</head>
+<body>
+
+  <!-- 全局背景粒子 -->
+  <canvas id="particle-canvas"></canvas>
+
+  <!-- 右上角工具栏 -->
+  <div class="theme-toggle">
+    <button class="theme-btn" id="btn-theme" title="切换主题">🌙</button>
+    <button class="settings-btn" id="btn-settings" title="设置">⚙️</button>
+  </div>
+
+  <!-- 设置面板 -->
+  <div class="settings-overlay" id="settings-overlay"></div>
+  <div class="settings-panel" id="settings-panel">
+    <h3 class="settings-title">⚙️ 设置</h3>
+
+    <div class="settings-group">
+      <label class="settings-label">AI 模型提供商</label>
+      <select class="settings-select" id="ai-provider">
+        <option value="deepseek">DeepSeek</option>
+        <option value="custom">自定义</option>
+      </select>
+    </div>
+
+    <div class="settings-group">
+      <label class="settings-label">API Key</label>
+      <input type="password" class="settings-input" id="ai-api-key" placeholder="sk-...">
+    </div>
+
+    <div class="settings-group" id="custom-endpoint-group" style="display:none;">
+      <label class="settings-label">自定义 API 地址</label>
+      <input type="text" class="settings-input" id="ai-endpoint" placeholder="https://api.example.com/v1/chat/completions">
+    </div>
+
+    <div class="settings-group">
+      <label class="settings-label">自定义模型名称</label>
+      <input type="text" class="settings-input" id="ai-model" placeholder="deepseek-chat">
+    </div>
+
+    <button class="btn-primary btn-ghost" id="btn-save-settings" style="width:100%;margin-top:1rem;">保存设置</button>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast" id="toast"></div>
+
+  <!-- 底部导航栏（移动端） -->
+  <nav class="bottom-nav" id="bottom-nav">
+    <div class="bottom-nav-item active" data-page="home" onclick="navigateTo('home')">
+      <span class="bottom-nav-icon">🏠</span>
+      <span class="bottom-nav-label">首页</span>
+    </div>
+    <div class="bottom-nav-item" data-page="i-ching" onclick="navigateTo('i-ching')">
+      <span class="bottom-nav-icon">☯</span>
+      <span class="bottom-nav-label">周易</span>
+    </div>
+    <div class="bottom-nav-item" data-page="tarot" onclick="navigateTo('tarot')">
+      <span class="bottom-nav-icon">🃏</span>
+      <span class="bottom-nav-label">塔罗</span>
+    </div>
+    <div class="bottom-nav-item" data-page="astrology" onclick="navigateTo('astrology')">
+      <span class="bottom-nav-icon">⭐</span>
+      <span class="bottom-nav-label">占星</span>
+    </div>
+    <div class="bottom-nav-item" data-page="bazi" onclick="navigateTo('bazi')">
+      <span class="bottom-nav-icon">📅</span>
+      <span class="bottom-nav-label">八字</span>
+    </div>
+    <div class="bottom-nav-item" data-page="ziwei" onclick="navigateTo('ziwei')">
+      <span class="bottom-nav-icon">🏛️</span>
+      <span class="bottom-nav-label">紫微</span>
+    </div>
+    <div class="bottom-nav-item" data-page="settings" onclick="toggleSettings()">
+      <span class="bottom-nav-icon">⚙️</span>
+      <span class="bottom-nav-label">设置</span>
+    </div>
+  </nav>
+
+  <!-- ===== 首页 ===== -->
+  <div class="page active" id="page-home">
+    <div class="home-page">
+      <h1 class="home-title">神谕占卜台</h1>
+      <p class="home-subtitle">ORACLE DIVINATION</p>
+
+      <div class="divination-grid">
+        <!-- 周易 -->
+        <div class="divination-card" data-type="east" onclick="navigateTo('i-ching')">
+          <span class="card-badge badge-east">东方</span>
+          <div class="card-icon">☯</div>
+          <h2 class="card-title">周易六十四卦</h2>
+          <p class="card-desc">天地之道，六十四卦尽万象。起卦问卜，窥见命运密码。</p>
+        </div>
+
+        <!-- 塔罗牌 -->
+        <div class="divination-card" data-type="west" onclick="navigateTo('tarot')">
+          <span class="card-badge badge-west">西方</span>
+          <div class="card-icon">🃏</div>
+          <h2 class="card-title">塔罗牌</h2>
+          <p class="card-desc">七十八张密语，正逆之间揭示灵魂深处的答案。</p>
+        </div>
+
+        <!-- 占星术 -->
+        <div class="divination-card" data-type="west" onclick="navigateTo('astrology')">
+          <span class="card-badge badge-west">西方</span>
+          <div class="card-icon">⭐</div>
+          <h2 class="card-title">占星术</h2>
+          <p class="card-desc">星辰轨迹，十二星座解读你的宇宙蓝图。</p>
+        </div>
+
+        <!-- 紫微斗数 -->
+        <div class="divination-card" data-type="east" onclick="navigateTo('ziwei')">
+          <span class="card-badge badge-east">东方</span>
+          <div class="card-icon">🏛️</div>
+          <h2 class="card-title">紫微斗数</h2>
+          <p class="card-desc">帝王之术，十二宫垣揭示一生命格。</p>
+        </div>
+
+        <!-- 四柱八字 -->
+        <div class="divination-card" data-type="east" onclick="navigateTo('bazi')">
+          <span class="card-badge badge-east">东方</span>
+          <div class="card-icon">📅</div>
+          <h2 class="card-title">四柱八字</h2>
+          <p class="card-desc">天干地支，年月日时推演五行生克。</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 周易页面 ===== -->
+  <div class="page" id="page-i-ching">
+    <div class="page-container">
+      <div class="page-header">
+        <button class="btn-back" onclick="navigateTo('home')">←</button>
+        <h1 class="page-title">☯ 周易六十四卦</h1>
+      </div>
+
+      <!-- 步骤 1: 选择起卦方式 -->
+      <div id="iching-step-choose">
+        <div class="input-section">
+          <label class="input-label">选择起卦方式</label>
+          <div class="selection-grid" style="grid-template-columns: repeat(3, 1fr);">
+            <div class="selection-item" onclick="selectIChingMethod('manual')" id="method-manual">
+              ☰<br>
+              <span style="font-size:0.7rem;color:var(--text-secondary);">手动选卦</span>
+            </div>
+            <div class="selection-item" onclick="selectIChingMethod('coin')" id="method-coin">
+              🪙<br>
+              <span style="font-size:0.7rem;color:var(--text-secondary);">铜钱起卦</span>
+            </div>
+            <div class="selection-item" onclick="selectIChingMethod('random')" id="method-random">
+              🎲<br>
+              <span style="font-size:0.7rem;color:var(--text-secondary);">随机起卦</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 步骤 2: 输入问题 -->
+      <div id="iching-step-question" style="display:none;">
+        <div class="input-section">
+          <label class="input-label">心中所问之事</label>
+          <textarea class="question-input" id="iching-question" placeholder="静心默念你想问的问题...&#10;例如：最近的事业发展如何？这段感情会有好结果吗？"></textarea>
+          <div style="margin-top:1rem;display:flex;gap:1rem;">
+            <button class="btn-primary btn-ghost" onclick="ichingPrevStep()">上一步</button>
+            <button class="btn-primary btn-east" onclick="startIChingDivination()">开始起卦</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 步骤 3: 推演动画 -->
+      <div id="iching-step-animation" style="display:none;">
+        <div class="divination-stage" id="iching-stage">
+          <canvas id="stage-canvas"></canvas>
+          <div class="stage-content">
+            <div id="iching-animation-text" style="font-family:var(--font-display);font-size:1.3rem;color:var(--text-secondary);"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 步骤 4: 结果 -->
+      <div id="iching-step-result" style="display:none;">
+        <div class="result-section" id="iching-result">
+          <div class="result-header">
+            <div class="result-symbol" id="result-iching-symbol"></div>
+            <div class="result-name" id="result-iching-name"></div>
+            <div class="result-meaning" id="result-iching-meaning"></div>
+          </div>
+          <div class="hexagram-display" id="result-iching-lines"></div>
+          <div class="result-divider"></div>
+          <div class="result-body" id="result-iching-body"></div>
+          <div class="result-actions">
+            <button class="btn-primary btn-ghost" onclick="resetIChing()">重新起卦</button>
+            <button class="btn-primary btn-ghost" onclick="shareResult('iching-result')">📤 分享</button>
+            <button class="btn-primary btn-ai" id="btn-iching-ai" onclick="requestAIReading('iching')">🔮 AI 深度解读</button>
+          </div>
+          <div class="ai-reading" id="iching-ai-reading" style="display:none;">
+            <div class="ai-reading-header">🤖 AI 深度解读</div>
+            <div class="ai-reading-body" id="iching-ai-body"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 塔罗页面 ===== -->
+  <div class="page" id="page-tarot">
+    <div class="page-container">
+      <div class="page-header">
+        <button class="btn-back" onclick="navigateTo('home')">←</button>
+        <h1 class="page-title">🃏 塔罗牌</h1>
+      </div>
+
+      <!-- 步骤 1: 选择牌阵 -->
+      <div id="tarot-step-spread">
+        <div class="input-section">
+          <label class="input-label">选择牌阵</label>
+          <div class="spread-selector">
+            <div class="spread-option selected" onclick="selectTarotSpread('single')" data-spread="single">
+              <div class="spread-option-name">单牌占卜</div>
+              <div class="spread-option-desc">一个问题，一张牌的启示</div>
+            </div>
+            <div class="spread-option" onclick="selectTarotSpread('three')" data-spread="three">
+              <div class="spread-option-name">时间之流</div>
+              <div class="spread-option-desc">过去 · 现在 · 未来</div>
+            </div>
+            <div class="spread-option" onclick="selectTarotSpread('cross')" data-spread="cross">
+              <div class="spread-option-name">十字牌阵</div>
+              <div class="spread-option-desc">全面深入的五牌分析</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 步骤 2: 输入问题 -->
+      <div id="tarot-step-question" style="display:none;">
+        <div class="input-section">
+          <label class="input-label">心中所问之事</label>
+          <textarea class="question-input" id="tarot-question" placeholder="静心默念你想问的问题...&#10;例如：我该选择哪条职业道路？这段关系能长久吗？"></textarea>
+          <div style="margin-top:1rem;display:flex;gap:1rem;">
+            <button class="btn-primary btn-ghost" onclick="tarotPrevStep()">上一步</button>
+            <button class="btn-primary btn-west" onclick="startTarotDivination()">开始抽牌</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 步骤 3: 推演动画 -->
+      <div id="tarot-step-animation" style="display:none;">
+        <div class="divination-stage" id="tarot-stage">
+          <canvas id="stage-canvas-tarot"></canvas>
+          <div class="stage-content">
+            <div id="tarot-animation-text" style="font-family:var(--font-display);font-size:1.3rem;color:var(--text-secondary);"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 步骤 4: 结果 -->
+      <div id="tarot-step-result" style="display:none;">
+        <div class="result-section" id="tarot-result">
+          <div class="result-header">
+            <div class="result-symbol" id="result-tarot-spread-name"></div>
+            <div class="result-name" id="result-tarot-title"></div>
+          </div>
+
+          <div class="tarot-spread" id="tarot-spread-display"></div>
+
+          <div class="result-divider"></div>
+
+          <div class="result-body" id="result-tarot-body"></div>
+          <div class="result-actions">
+            <button class="btn-primary btn-ghost" onclick="resetTarot()">重新抽牌</button>
+            <button class="btn-primary btn-ghost" onclick="shareResult('tarot-result')">📤 分享</button>
+            <button class="btn-primary btn-ai" id="btn-tarot-ai" onclick="requestAIReading('tarot')">🔮 AI 深度解读</button>
+          </div>
+          <div class="ai-reading" id="tarot-ai-reading" style="display:none;">
+            <div class="ai-reading-header">🤖 AI 深度解读</div>
+            <div class="ai-reading-body" id="tarot-ai-body"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 紫微斗数页面 ===== -->
+  <div class="page" id="page-ziwei">
+    <div class="page-container">
+      <div class="page-header">
+        <button class="btn-back" onclick="navigateTo('home')">←</button>
+        <h1 class="page-title">🏛️ 紫微斗数</h1>
+      </div>
+
+      <!-- 步骤 1: 输入出生信息 -->
+      <div id="ziwei-step-input">
+        <div class="input-section">
+          <label class="input-label">出生日期（公历）</label>
+          <div class="ziwei-date-inputs">
+            <div class="ziwei-date-group">
+              <label>年</label>
+              <input type="number" class="settings-input ziwei-year-input" id="zw-year" min="1900" max="2100" placeholder="1990">
+            </div>
+            <div class="ziwei-date-group">
+              <label>月</label>
+              <input type="number" class="settings-input ziwei-month-input" id="zw-month" min="1" max="12" placeholder="6">
+            </div>
+            <div class="ziwei-date-group">
+              <label>日</label>
+              <input type="number" class="settings-input ziwei-day-input" id="zw-day" min="1" max="31" placeholder="15">
+            </div>
+          </div>
+
+          <label class="input-label" style="margin-top:1.5rem;">出生时辰</label>
+          <div class="shichen-selector" id="shichen-selector"></div>
+
+          <label class="input-label" style="margin-top:1.5rem;">性别</label>
+          <div class="gender-selector">
+            <div class="selection-item gender-item" onclick="selectGender('male')" id="gender-male" style="aspect-ratio:auto;padding:0.75rem 2rem;">
+              男
+            </div>
+            <div class="selection-item gender-item" onclick="selectGender('female')" id="gender-female" style="aspect-ratio:auto;padding:0.75rem 2rem;">
+              女
+            </div>
+          </div>
+
+          <button class="btn-primary btn-east" style="width:100%;margin-top:1.5rem;" onclick="startZiweiDivination()">开始排盘</button>
+        </div>
+      </div>
+
+      <!-- 步骤 2: 推演动画 -->
+      <div id="ziwei-step-animation" style="display:none;">
+        <div class="divination-stage" id="ziwei-stage">
+          <canvas id="stage-canvas-ziwei"></canvas>
+          <div class="stage-content">
+            <div id="ziwei-animation-text" style="font-family:var(--font-display);font-size:1.3rem;color:var(--text-secondary);"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 步骤 3: 命盘展示 -->
+      <div id="ziwei-step-result" style="display:none;">
+        <!-- 四柱信息 -->
+        <div class="sizhu-display" id="sizhu-display"></div>
+        <!-- 命盘十二宫 -->
+        <div class="ziwei-chart-wrapper">
+          <div class="ziwei-chart" id="ziwei-chart"></div>
+          <div class="ziwei-chart-center" id="ziwei-chart-center"></div>
+        </div>
+        <!-- 详细解读 -->
+        <div class="result-section" id="ziwei-result" style="margin-top:1.5rem;"></div>
+        <div class="result-actions" style="margin-top:1.5rem;">
+          <button class="btn-primary btn-ghost" onclick="resetZiwei()">重新排盘</button>
+          <button class="btn-primary btn-ghost" onclick="shareResult('ziwei-result')">📤 分享</button>
+          <button class="btn-primary btn-ai" id="btn-ziwei-ai" onclick="requestAIReading('ziwei')">🔮 AI 深度解读</button>
+        </div>
+        <div class="ai-reading" id="ziwei-ai-reading" style="display:none;">
+          <div class="ai-reading-header">🤖 AI 深度解读</div>
+          <div class="ai-reading-body" id="ziwei-ai-body"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 占星术页面 ===== -->
+  <div class="page" id="page-astrology">
+    <div class="page-container">
+      <div class="page-header">
+        <button class="btn-back" onclick="navigateTo('home')">←</button>
+        <h1 class="page-title">⭐ 占星术</h1>
+      </div>
+
+      <!-- 步骤 1: 选择出生月日 -->
+      <div id="astro-step-input">
+        <div class="input-section">
+          <label class="input-label">出生月份</label>
+          <div class="selection-grid" id="astro-month-grid" style="grid-template-columns: repeat(4, 1fr);"></div>
+
+          <label class="input-label" style="margin-top:1.5rem;">出生日期</label>
+          <div class="selection-grid" id="astro-day-grid" style="grid-template-columns: repeat(7, 1fr);"></div>
+
+          <button class="btn-primary btn-west" style="width:100%;margin-top:1.5rem;" onclick="startAstrologyDivination()">揭示星座</button>
+        </div>
+      </div>
+
+      <!-- 步骤 2: 推演动画 -->
+      <div id="astro-step-animation" style="display:none;">
+        <div class="divination-stage" id="astro-stage">
+          <canvas id="stage-canvas-astro"></canvas>
+          <div class="stage-content">
+            <div id="astro-animation-text" style="font-family:var(--font-display);font-size:1.3rem;color:var(--text-secondary);"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 步骤 3: 结果 -->
+      <div id="astro-step-result" style="display:none;">
+        <div class="result-section" id="astro-result">
+          <div class="result-header">
+            <div class="result-symbol" id="result-astro-symbol"></div>
+            <div class="result-name" id="result-astro-name"></div>
+            <div class="result-meaning" id="result-astro-element"></div>
+            <div id="result-astro-traits" style="margin-top:1rem;display:flex;gap:0.5rem;justify-content:center;flex-wrap:wrap;"></div>
+          </div>
+
+          <!-- 星座轮盘 -->
+          <div class="zodiac-wheel" id="astro-zodiac-wheel"></div>
+
+          <div class="result-divider"></div>
+          <div class="result-body" id="result-astro-body"></div>
+
+          <!-- 宫位参考 -->
+          <div class="result-section" id="astro-houses-display" style="margin-top:1.5rem;"></div>
+
+          <div class="result-actions">
+            <button class="btn-primary btn-ghost" onclick="resetAstrology()">重新查看</button>
+            <button class="btn-primary btn-ghost" onclick="shareResult('astro-result')">📤 分享</button>
+            <button class="btn-primary btn-ai" id="btn-astrology-ai" onclick="requestAIReading('astrology')">🔮 AI 深度解读</button>
+          </div>
+          <div class="ai-reading" id="astro-ai-reading" style="display:none;">
+            <div class="ai-reading-header">🤖 AI 深度解读</div>
+            <div class="ai-reading-body" id="astro-ai-body"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== 四柱八字页面 ===== -->
+  <div class="page" id="page-bazi">
+    <div class="page-container">
+      <div class="page-header">
+        <button class="btn-back" onclick="navigateTo('home')">←</button>
+        <h1 class="page-title">📅 四柱八字</h1>
+      </div>
+
+      <!-- 步骤 1: 输入出生信息 -->
+      <div id="bazi-step-input">
+        <div class="input-section">
+          <label class="input-label">出生日期（公历）</label>
+          <div class="ziwei-date-inputs">
+            <div class="ziwei-date-group">
+              <label>年</label>
+              <input type="number" class="settings-input ziwei-year-input" id="bazi-year" min="1900" max="2100" placeholder="1990">
+            </div>
+            <div class="ziwei-date-group">
+              <label>月</label>
+              <input type="number" class="settings-input ziwei-month-input" id="bazi-month" min="1" max="12" placeholder="6">
+            </div>
+            <div class="ziwei-date-group">
+              <label>日</label>
+              <input type="number" class="settings-input ziwei-day-input" id="bazi-day" min="1" max="31" placeholder="15">
+            </div>
+          </div>
+
+          <label class="input-label" style="margin-top:1.5rem;">出生时辰</label>
+          <div class="shichen-selector" id="bazi-shichen-selector"></div>
+
+          <button class="btn-primary btn-east" style="width:100%;margin-top:1.5rem;" onclick="startBaziDivination()">开始排八字</button>
+        </div>
+      </div>
+
+      <!-- 步骤 2: 推演动画 -->
+      <div id="bazi-step-animation" style="display:none;">
+        <div class="divination-stage" id="bazi-stage">
+          <canvas id="stage-canvas-bazi"></canvas>
+          <div class="stage-content">
+            <div id="bazi-animation-text" style="font-family:var(--font-display);font-size:1.3rem;color:var(--text-secondary);"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 步骤 3: 结果 -->
+      <div id="bazi-step-result" style="display:none;">
+        <!-- 四柱展示 -->
+        <div class="bazi-pillars-wrapper" id="bazi-pillars-display"></div>
+
+        <!-- 五行分析 -->
+        <div class="result-section" id="bazi-wuxing-display" style="margin-top:1.5rem;"></div>
+
+        <!-- 命局解读 -->
+        <div class="result-section" id="bazi-reading" style="margin-top:1.5rem;"></div>
+
+        <!-- 大运排盘 -->
+        <div class="result-section" id="bazi-dayun-display" style="margin-top:1.5rem;"></div>
+
+        <div class="result-actions" style="margin-top:1.5rem;">
+          <button class="btn-primary btn-ghost" onclick="resetBazi()">重新排盘</button>
+          <button class="btn-primary btn-ghost" onclick="shareResult('bazi-reading')">📤 分享</button>
+          <button class="btn-primary btn-ai" id="btn-bazi-ai" onclick="requestAIReading('bazi')">🔮 AI 深度解读</button>
+        </div>
+        <div class="ai-reading" id="bazi-ai-reading" style="display:none;">
+          <div class="ai-reading-header">🤖 AI 深度解读</div>
+          <div class="ai-reading-body" id="bazi-ai-body"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="js/theme.js"></script>
+  <script src="js/animation.js"></script>
+  <script src="js/app.js"></script>
+  <script src="js/i-ching.js"></script>
+  <script src="js/tarot.js"></script>
+  <script src="js/ziwei.js"></script>
+  <script src="js/ziwei-ui.js"></script>
+  <script src="js/astrology.js"></script>
+  <script src="js/bazi.js"></script>
+  <script src="js/share.js"></script>
+  <script src="js/ai-reader.js"></script>
+
+  <!-- Service Worker 注册 -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+          .then(reg => console.log('SW registered:', reg.scope))
+          .catch(err => console.log('SW registration failed:', err));
+      });
+    }
+  </script>
+</body>
+</html>
