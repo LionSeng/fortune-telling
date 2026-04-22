@@ -19,6 +19,21 @@ async function shareResult(elementId) {
   showToast('正在生成分享图片...', '');
 
   try {
+    // 获取当前主题的 CSS 变量值，供克隆元素使用
+    const rootStyle = getComputedStyle(document.documentElement);
+    const themeVars = {
+      '--bg-primary': rootStyle.getPropertyValue('--bg-primary').trim(),
+      '--bg-secondary': rootStyle.getPropertyValue('--bg-secondary').trim(),
+      '--bg-card': rootStyle.getPropertyValue('--bg-card').trim(),
+      '--text-primary': rootStyle.getPropertyValue('--text-primary').trim(),
+      '--text-secondary': rootStyle.getPropertyValue('--text-secondary').trim(),
+      '--text-muted': rootStyle.getPropertyValue('--text-muted').trim(),
+      '--accent-gold': rootStyle.getPropertyValue('--accent-gold').trim(),
+      '--border-color': rootStyle.getPropertyValue('--border-color').trim(),
+      '--accent-purple': rootStyle.getPropertyValue('--accent-purple').trim(),
+      '--accent-cyan': rootStyle.getPropertyValue('--accent-cyan').trim(),
+    };
+
     // 创建分享容器（添加品牌水印）
     const shareWrapper = document.createElement('div');
     shareWrapper.className = 'share-capture-wrapper';
@@ -33,16 +48,22 @@ async function shareResult(elementId) {
     `;
     shareWrapper.appendChild(watermark);
 
-    // 临时添加到 DOM
-    shareWrapper.style.cssText = 'position:fixed;top:0;left:0;width:100vw;opacity:0;pointer-events:none;z-index:-1;';
+    // 临时添加到 DOM — 用 clip 裁剪而非 opacity:0 隐藏（html2canvas 不渲染透明元素）
+    shareWrapper.style.cssText = 'position:fixed;top:0;left:0;width:100vw;height:100vh;pointer-events:none;z-index:-1;clip:rect(0,0,0,0);';
+    // 注入当前主题变量，确保克隆元素的样式正确
+    Object.entries(themeVars).forEach(([k, v]) => {
+      if (v) shareWrapper.style.setProperty(k, v);
+    });
     document.body.appendChild(shareWrapper);
 
     // 截图
     const canvas = await html2canvas(shareWrapper, {
-      backgroundColor: getComputedStyle(document.documentElement).getPropertyValue('--bg-primary').trim() || '#0a0a0f',
+      backgroundColor: themeVars['--bg-primary'] || '#0a0a0f',
       scale: 2,
       useCORS: true,
       logging: false,
+      // 确保渲染隐藏区域
+      ignoreElements: (el) => false,
     });
 
     // 移除临时元素
