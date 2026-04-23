@@ -2496,7 +2496,7 @@ body {
 .daily-overlay-bg {
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(0, 0, 0, 0.5);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
 }
@@ -2542,6 +2542,10 @@ body {
 /* --- 详情内容 --- */
 .daily-detail {
   position: relative;
+  background: var(--bg-primary);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 1.5rem;
 }
 
 .daily-close-btn {

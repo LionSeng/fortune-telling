@@ -5,7 +5,7 @@
 
 const DailyOracle = {
   STORAGE_KEY: 'divination-daily',
-  CACHE_VERSION: 2, // 缓存版本号，格式变更时递增以强制刷新
+  CACHE_VERSION: 3, // 缓存版本号，格式变更时递增以强制刷新
   ICING_SEED: 42,   // 周易偏移种子
   TAROT_SEED: 137,   // 塔罗偏移种子
 
@@ -242,6 +242,9 @@ const DailyOracle = {
     const content = document.getElementById('daily-detail-content');
     if (!overlay || !content) return;
 
+    // 清除可能残留的内联 display 样式，确保 CSS class 正常生效
+    overlay.style.removeProperty('display');
+
     // 显示加载状态
     overlay.classList.add('open');
     content.innerHTML = `
@@ -368,204 +371,288 @@ const DailyOracle = {
       return;
     }
 
+    // 生成底部祝福语（不依赖 AI 解读）
+    const blessings = [
+      `愿今日的${cache.iching.name}卦为你照亮前路，${cache.tarot[0].name}指引你心中所向。`,
+      `${cache.iching.name}卦示今日之机，${cache.tarot[0].name}${cache.tarot[0].isReversed ? '逆位提醒你沉淀内心' : '正位为你带来力量'}。愿一切顺遂。`,
+      `宇宙今日为你翻开${cache.iching.name}卦，搭配${cache.tarot[0].name}的启示——愿你所行皆坦途，所遇皆温柔。`,
+      `今日以${cache.iching.name}卦为引，${cache.tarot[0].name}为伴。愿你顺势而为，心想事成。`
+    ];
+    const blessing = blessings[this._hashDate(this._todayStr()) % blessings.length];
+
     showToast('正在生成分享图片...', '');
 
     try {
-      const W = 750;   // canvas 宽度
-      const padding = 40;
-      const lineH = 32;
-      let y = padding;
+      const W = 750;
+      const P = 40; // 左右 padding
+      const textW = W - P * 2; // 可用文本宽度
 
+      const ctx = document.createElement('canvas').getContext('2d');
+      const fortuneText = cache.fortune || '';
+      const kwArr = cache.iching.keywords || [];
+
+      // ========== 第一遍：测量总高度 ==========
+      let y = P;
+
+      // 顶部装饰线
+      y += 30;
+
+      // 日期 + 标题
+      y += 45 + 40;
+
+      // 综合寄语（动态测量）
+      ctx.font = '22px sans-serif';
+      const fortuneLines = wrapText(ctx, fortuneText, textW - 40);
+      const fortuneBoxH = Math.max(fortuneLines.length * 30 + 20, 60);
+      y += fortuneBoxH + 50;
+
+      // 周易卦象标题
+      y += 35;
+
+      // 英文名 + 含义（可能换行）
+      ctx.font = '20px sans-serif';
+      const ichingSub = `${cache.iching.english}  ·  ${cache.iching.meaning}`;
+      const ichingSubLines = wrapText(ctx, ichingSub, textW);
+      y += 30 + ichingSubLines.length * 28;
+
+      // 卦辞 + 象辞（每条可能换行，最多各2行）
+      ctx.font = '18px sans-serif';
+      const judgmentLines = wrapText(ctx, `卦辞：${cache.iching.judgment}`, textW).slice(0, 2);
+      const imageLines = wrapText(ctx, `象辞：${cache.iching.image}`, textW).slice(0, 2);
+      y += judgmentLines.length * 26 + 8 + imageLines.length * 26 + 35;
+
+      // 今日建议（可能换行，最多2行）
+      ctx.font = 'bold 20px sans-serif';
+      const adviceLines = wrapText(ctx, `🎯 今日建议：${cache.iching.advice}`, textW).slice(0, 2);
+      y += adviceLines.length * 28 + 50;
+
+      // 塔罗双牌（动态计算卡片高度）
+      ctx.font = '16px sans-serif';
+      const cardW = (textW - 20) / 2;
+      let maxTarotH = 0;
+      cache.tarot.forEach(card => {
+        const readingLines = wrapText(ctx, card.reading, cardW - 24).slice(0, 4);
+        const h = 100 + readingLines.length * 22 + 16;
+        if (h > maxTarotH) maxTarotH = h;
+      });
+      y += maxTarotH + 20;
+
+      // 关键词
+      ctx.font = '16px sans-serif';
+      const kwText = kwArr.map(k => `#${k}`).join('  ');
+      const kwLines = wrapText(ctx, kwText, textW - 40);
+      y += kwLines.length * 24 + 30;
+
+      // 分隔线 + 祝福语
+      ctx.font = 'italic 20px sans-serif';
+      const blessingLines = wrapText(ctx, blessing, textW - 60);
+      y += 30 + 40 + blessingLines.length * 30 + 25;
+
+      // 底部水印
+      y += 15 + 30 + 24 + 30;
+
+      const canvasH = y + 10;
       const canvas = document.createElement('canvas');
       canvas.width = W;
-      // 先估算高度
-      const fortuneText = cache.fortune || '';
-      const adviceText = cache.iching.advice || '';
-      const kwArr = cache.iching.keywords || [];
-      const tarotLines = cache.tarot.map(t => {
-        const orient = t.isReversed ? '（逆位）' : '（正位）';
-        return `${t.symbol} ${t.name}${orient} — ${t.reading}`;
-      });
+      canvas.height = canvasH;
+      const c = canvas.getContext('2d');
 
-      // 估算总高度
-      let estH = padding * 2 + 60 + 30 + fortuneText.length > 40 ? 80 : 50
-        + 40 + 50 + 20 + lineH * 2 + lineH  // 卦象区域
-        + 40 + 50 + tarotLines.length * 70  // 塔罗区域
-        + 30 + 60  // 关键词
-        + 80;  // 底部水印
-      canvas.height = Math.max(estH, 900);
+      // ========== 第二遍：正式绘制 ==========
+      y = P;
 
-      const ctx = canvas.getContext('2d');
-
-      // --- 背景 ---
-      ctx.fillStyle = '#0f0f1a';
-      ctx.fillRect(0, 0, W, canvas.height);
+      // --- 浅色背景 ---
+      c.fillStyle = '#f8f6f1';
+      c.fillRect(0, 0, W, canvasH);
 
       // --- 顶部装饰线 ---
-      const grad = ctx.createLinearGradient(W * 0.2, 0, W * 0.8, 0);
-      grad.addColorStop(0, 'rgba(212,168,70,0)');
-      grad.addColorStop(0.5, 'rgba(212,168,70,0.6)');
-      grad.addColorStop(1, 'rgba(212,168,70,0)');
-      ctx.strokeStyle = grad;
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(W * 0.1, y);
-      ctx.lineTo(W * 0.9, y);
-      ctx.stroke();
+      const grad = c.createLinearGradient(W * 0.2, 0, W * 0.8, 0);
+      grad.addColorStop(0, 'rgba(180,140,50,0)');
+      grad.addColorStop(0.5, 'rgba(180,140,50,0.5)');
+      grad.addColorStop(1, 'rgba(180,140,50,0)');
+      c.strokeStyle = grad;
+      c.lineWidth = 1;
+      c.beginPath();
+      c.moveTo(W * 0.1, y);
+      c.lineTo(W * 0.9, y);
+      c.stroke();
       y += 30;
 
       // --- 日期 ---
-      ctx.textAlign = 'center';
-      ctx.font = '24px sans-serif';
-      ctx.fillStyle = '#888';
-      ctx.fillText(this._formatDate(cache.date), W / 2, y);
+      c.textAlign = 'center';
+      c.font = '24px sans-serif';
+      c.fillStyle = '#999';
+      c.fillText(this._formatDate(cache.date), W / 2, y);
       y += 45;
 
       // --- 标题 ---
-      ctx.font = 'bold 36px sans-serif';
-      ctx.fillStyle = '#d4a853';
-      ctx.fillText('✦ 今日神谕 ✦', W / 2, y);
+      c.font = 'bold 36px sans-serif';
+      c.fillStyle = '#8b6914';
+      c.fillText('\u2726 今日神谕 \u2726', W / 2, y);
       y += 40;
 
-      // --- 综合寄语 ---
-      const fortuneGrad = ctx.createLinearGradient(padding, 0, W - padding, 0);
-      fortuneGrad.addColorStop(0, 'rgba(212,168,70,0.05)');
-      fortuneGrad.addColorStop(0.5, 'rgba(212,168,70,0.1)');
-      fortuneGrad.addColorStop(1, 'rgba(212,168,70,0.05)');
-      ctx.fillStyle = fortuneGrad;
-      roundRect(ctx, padding, y, W - padding * 2, 70, 12);
-      ctx.fill();
+      // --- 综合寄语（背景框高度 = 动态计算） ---
+      const fortuneGrad = c.createLinearGradient(P, 0, W - P, 0);
+      fortuneGrad.addColorStop(0, 'rgba(180,140,50,0.06)');
+      fortuneGrad.addColorStop(0.5, 'rgba(180,140,50,0.12)');
+      fortuneGrad.addColorStop(1, 'rgba(180,140,50,0.06)');
+      c.fillStyle = fortuneGrad;
+      roundRect(c, P, y, textW, fortuneBoxH, 12);
+      c.fill();
 
-      ctx.font = '22px sans-serif';
-      ctx.fillStyle = '#e0d0b0';
-      const fortuneLines = wrapText(ctx, fortuneText, W - padding * 2 - 40);
-      fortuneLines.forEach(line => {
-        y += 30;
-        ctx.fillText(line, W / 2, y);
+      c.font = '22px sans-serif';
+      c.fillStyle = '#5a4a2a';
+      const textStartY = y + (fortuneBoxH - fortuneLines.length * 30) / 2 + 24;
+      fortuneLines.forEach((line, i) => {
+        c.fillText(line, W / 2, textStartY + i * 30);
       });
-      y += 50;
+      y += fortuneBoxH + 50;
 
       // --- 周易卦象 ---
-      ctx.font = 'bold 26px sans-serif';
-      ctx.fillStyle = '#d4a853';
-      ctx.textAlign = 'left';
-      ctx.fillText(`☯ 第${cache.iching.number}卦 · ${cache.iching.name}`, padding, y);
+      c.font = 'bold 26px sans-serif';
+      c.fillStyle = '#8b6914';
+      c.textAlign = 'left';
+      c.fillText(`\u262F 第${cache.iching.number}卦 \u00B7 ${cache.iching.name}`, P, y);
       y += 35;
 
-      ctx.font = '20px sans-serif';
-      ctx.fillStyle = '#999';
-      ctx.fillText(`${cache.iching.english}  ·  ${cache.iching.meaning}`, padding, y);
-      y += 30;
+      c.font = '20px sans-serif';
+      c.fillStyle = '#888';
+      ichingSubLines.forEach(line => {
+        c.fillText(line, P, y);
+        y += 28;
+      });
+      y += 4;
 
-      ctx.font = '18px sans-serif';
-      ctx.fillStyle = '#ccc';
-      ctx.fillText(`卦辞：${cache.iching.judgment}`, padding, y);
-      y += 28;
-      ctx.fillText(`象辞：${cache.iching.image}`, padding, y);
+      // 卦辞 + 象辞（自动换行，各限2行）
+      c.font = '18px sans-serif';
+      c.fillStyle = '#555';
+      judgmentLines.forEach(line => {
+        c.fillText(line, P, y);
+        y += 26;
+      });
+      y += 8;
+      imageLines.forEach(line => {
+        c.fillText(line, P, y);
+        y += 26;
+      });
       y += 35;
 
-      ctx.font = 'bold 20px sans-serif';
-      ctx.fillStyle = '#e0c080';
-      ctx.fillText(`🎯 今日建议：${cache.iching.advice}`, padding, y);
-      y += 50;
+      // 今日建议（自动换行，限2行）
+      c.font = 'bold 20px sans-serif';
+      c.fillStyle = '#6b5a20';
+      adviceLines.forEach(line => {
+        c.fillText(line, P, y);
+        y += 28;
+      });
+      y += 50 - (adviceLines.length > 1 ? 28 : 0);
 
       // --- 塔罗双牌 ---
-      const cardW = (W - padding * 2 - 20) / 2;
       cache.tarot.forEach((card, idx) => {
-        const cx = padding + idx * (cardW + 20);
+        const cx = P + idx * (cardW + 20);
         const orient = card.isReversed ? '（逆位）' : '（正位）';
 
+        // 测量此牌的实际内容高度
+        c.font = '16px sans-serif';
+        const rLines = wrapText(c, card.reading, cardW - 24).slice(0, 4);
+        const thisCardH = Math.max(maxTarotH, 160);
+
         // 卡片背景
-        ctx.fillStyle = 'rgba(255,255,255,0.04)';
-        roundRect(ctx, cx, y, cardW, 160, 12);
-        ctx.fill();
+        c.fillStyle = 'rgba(0,0,0,0.04)';
+        roundRect(c, cx, y, cardW, thisCardH, 12);
+        c.fill();
         if (card.isReversed) {
-          ctx.strokeStyle = 'rgba(197,61,67,0.3)';
-          ctx.lineWidth = 1;
-          roundRect(ctx, cx, y, cardW, 160, 12);
-          ctx.stroke();
+          c.strokeStyle = 'rgba(197,61,67,0.25)';
+          c.lineWidth = 1;
+          roundRect(c, cx, y, cardW, thisCardH, 12);
+          c.stroke();
         }
 
-        // 位置标签
-        ctx.textAlign = 'center';
-        ctx.font = '16px sans-serif';
-        ctx.fillStyle = '#888';
-        ctx.fillText(card.position, cx + cardW / 2, y + 22);
+        c.textAlign = 'center';
+        c.font = '16px sans-serif';
+        c.fillStyle = '#999';
+        c.fillText(card.position, cx + cardW / 2, y + 22);
 
-        // 符号
-        ctx.font = '36px sans-serif';
-        ctx.fillText(card.symbol, cx + cardW / 2, y + 65);
+        c.font = '36px sans-serif';
+        c.fillText(card.symbol, cx + cardW / 2, y + 62);
 
-        // 牌名
-        ctx.font = 'bold 20px sans-serif';
-        ctx.fillStyle = card.isReversed ? '#c53d43' : '#d4a853';
-        ctx.fillText(`${card.name}${orient}`, cx + cardW / 2, y + 95);
+        c.font = 'bold 20px sans-serif';
+        c.fillStyle = card.isReversed ? '#c53d43' : '#8b6914';
+        c.fillText(`${card.name}${orient}`, cx + cardW / 2, y + 95);
 
-        // 解读
-        ctx.font = '16px sans-serif';
-        ctx.fillStyle = '#aaa';
-        const readingLines = wrapText(ctx, card.reading, cardW - 20);
-        readingLines.slice(0, 3).forEach((line, li) => {
-          ctx.fillText(line, cx + cardW / 2, y + 125 + li * 24);
+        c.font = '16px sans-serif';
+        c.fillStyle = '#666';
+        rLines.forEach((line, li) => {
+          c.fillText(line, cx + cardW / 2, y + 120 + li * 22);
         });
       });
-      y += 180;
+      y += maxTarotH + 20;
 
       // --- 关键词 ---
       if (kwArr.length > 0) {
-        ctx.textAlign = 'center';
-        ctx.font = '16px sans-serif';
-        const kwText = kwArr.map(k => `#${k}`).join('  ');
-        const kwLines = wrapText(ctx, kwText, W - padding * 2 - 40);
+        c.textAlign = 'center';
+        c.font = '16px sans-serif';
         kwLines.forEach(line => {
-          ctx.fillStyle = '#7a6a50';
-          ctx.fillText(line, W / 2, y);
+          c.fillStyle = '#a09070';
+          c.fillText(line, W / 2, y);
           y += 24;
         });
-        y += 20;
+        y += 30;
       }
 
-      // --- 底部水印 ---
-      y += 10;
-      const btmGrad = ctx.createLinearGradient(W * 0.2, 0, W * 0.8, 0);
-      btmGrad.addColorStop(0, 'rgba(212,168,70,0)');
-      btmGrad.addColorStop(0.5, 'rgba(212,168,70,0.4)');
-      btmGrad.addColorStop(1, 'rgba(212,168,70,0)');
-      ctx.strokeStyle = btmGrad;
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(W * 0.15, y);
-      ctx.lineTo(W * 0.85, y);
-      ctx.stroke();
+      // --- 分隔线 ---
+      const sumGrad = c.createLinearGradient(W * 0.3, 0, W * 0.7, 0);
+      sumGrad.addColorStop(0, 'rgba(180,140,50,0)');
+      sumGrad.addColorStop(0.5, 'rgba(180,140,50,0.3)');
+      sumGrad.addColorStop(1, 'rgba(180,140,50,0)');
+      c.strokeStyle = sumGrad;
+      c.lineWidth = 1;
+      c.beginPath();
+      c.moveTo(W * 0.2, y);
+      c.lineTo(W * 0.8, y);
+      c.stroke();
       y += 30;
 
-      ctx.font = 'bold 22px sans-serif';
-      ctx.fillStyle = '#d4a853';
-      ctx.fillText('神谕占卜台', W / 2, y);
+      // --- 祝福语 ---
+      c.textAlign = 'center';
+      c.font = '28px serif';
+      c.fillStyle = 'rgba(180,140,50,0.35)';
+      c.fillText('\u201C', W / 2, y + 16);
+      y += 20;
+
+      c.font = 'italic 20px sans-serif';
+      c.fillStyle = '#5a4a2a';
+      blessingLines.forEach(line => {
+        y += 30;
+        c.fillText(line, W / 2, y);
+      });
+      y += 25;
+
+      c.font = '28px serif';
+      c.fillStyle = 'rgba(180,140,50,0.35)';
+      c.fillText('\u201D', W / 2, y + 8);
+
+      // --- 底部水印 ---
+      y += 30;
+      const btmGrad = c.createLinearGradient(W * 0.2, 0, W * 0.8, 0);
+      btmGrad.addColorStop(0, 'rgba(180,140,50,0)');
+      btmGrad.addColorStop(0.5, 'rgba(180,140,50,0.3)');
+      btmGrad.addColorStop(1, 'rgba(180,140,50,0)');
+      c.strokeStyle = btmGrad;
+      c.lineWidth = 1;
+      c.beginPath();
+      c.moveTo(W * 0.15, y);
+      c.lineTo(W * 0.85, y);
+      c.stroke();
+      y += 30;
+
+      c.font = 'bold 22px sans-serif';
+      c.fillStyle = '#8b6914';
+      c.fillText('神谕占卜台', W / 2, y);
       y += 24;
-      ctx.font = '14px sans-serif';
-      ctx.fillStyle = '#666';
-      ctx.fillText('Oracle Divination', W / 2, y);
+      c.font = '14px sans-serif';
+      c.fillStyle = '#aaa';
+      c.fillText('Oracle Divination', W / 2, y);
 
-      // 裁剪多余空白
-      const imageData = ctx.getImageData(0, Math.max(0, canvas.height - 50), W, 50);
-      // 如果底部是纯背景色，裁剪掉
-      let trimmed = canvas.height;
-      for (let row = canvas.height - 1; row > y + 10; row--) {
-        const px = ctx.getImageData(0, row, W, 1).data;
-        let allBg = true;
-        for (let i = 0; i < px.length; i += 4) {
-          if (px[i] !== 15 || px[i+1] !== 15 || px[i+2] !== 26) { allBg = false; break; }
-        }
-        if (!allBg) { trimmed = row + 20; break; }
-      }
-
-      const finalCanvas = document.createElement('canvas');
-      finalCanvas.width = W;
-      finalCanvas.height = trimmed;
-      finalCanvas.getContext('2d').drawImage(canvas, 0, 0, W, trimmed);
-
-      const dataUrl = finalCanvas.toDataURL('image/png');
+      const dataUrl = canvas.toDataURL('image/png');
       showSharePanel(dataUrl);
 
     } catch (err) {
@@ -577,7 +664,11 @@ const DailyOracle = {
   // 关闭详情
   closeDetail() {
     const overlay = document.getElementById('daily-overlay');
-    if (overlay) overlay.classList.remove('open');
+    if (overlay) {
+      overlay.classList.remove('open');
+      // 清除可能残留的内联 display 样式（防止 showSharePanel 等操作干扰）
+      overlay.style.removeProperty('display');
+    }
   },
 
   // 初始化

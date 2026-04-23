@@ -220,10 +220,20 @@ function showSharePanel(imageDataUrl) {
   const existing = document.getElementById('share-panel-overlay');
   if (existing) existing.remove();
 
+  // 临时隐藏今日神谕浮窗，避免半透明背景干扰
+  const dailyOverlay = document.getElementById('daily-overlay');
+  const dailyWasOpen = dailyOverlay && dailyOverlay.classList.contains('open');
+  if (dailyWasOpen) dailyOverlay.style.display = 'none';
+
   const overlay = document.createElement('div');
   overlay.id = 'share-panel-overlay';
   overlay.className = 'ziwei-overlay show';
-  overlay.onclick = () => overlay.remove();
+  overlay.style.zIndex = '1001'; // 必须高于今日神谕浮窗的 z-index 1000
+  overlay.onclick = () => {
+    overlay.remove();
+    // 恢复今日神谕浮窗
+    if (dailyWasOpen && dailyOverlay) dailyOverlay.style.display = '';
+  };
 
   const panel = document.createElement('div');
   panel.className = 'share-panel';
@@ -232,7 +242,7 @@ function showSharePanel(imageDataUrl) {
   panel.innerHTML = `
     <div class="share-panel-header">
       <h3>分享占卜结果</h3>
-      <button class="ziwei-modal-close" onclick="document.getElementById('share-panel-overlay').remove()">✕</button>
+      <button class="ziwei-modal-close" onclick="document.getElementById('share-panel-overlay').remove(); if(document.getElementById('daily-overlay')) document.getElementById('daily-overlay').style.display='';">✕</button>
     </div>
     <div class="share-preview">
       <img src="${imageDataUrl}" alt="占卜结果">

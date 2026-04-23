@@ -59,7 +59,7 @@ async function requestAIReading(type) {
     
     model = settings.model || 'deepseek-chat';
     
-    // 构建请求体
+    // 构建请求体（流式输出，逐步展示思考过程和解读内容）
     const requestBody = {
       model: model,
       messages: [
@@ -94,12 +94,32 @@ async function requestAIReading(type) {
       throw new Error(`API 请求失败: ${response.status} ${response.statusText}`);
     }
     
-    // 流式读取
+    // 流式读取，每次用完整累积文本渲染，避免 Markdown 半截乱码
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
     let fullText = '';
     let reasoningText = '';
     let isReasoning = false;
+    let renderTimer = null;
+
+    // 节流渲染：每 100ms 刷新一次 DOM，避免高频更新卡顿
+    function scheduleRender() {
+      if (renderTimer) return;
+      renderTimer = setTimeout(() => {
+        renderTimer = null;
+        let html = '';
+        if (isReasoning && reasoningText) {
+          html += `<div class="ai-reasoning" style="color:var(--text-muted);font-size:0.85rem;margin-bottom:0.75rem;padding:0.5rem;border-left:2px solid var(--accent-west);opacity:0.7;"><strong>🔮 思考中...</strong><br>${formatAIText(reasoningText)}</div>`;
+        } else if (reasoningText) {
+          html += `<details class="ai-reasoning-toggle" style="margin-bottom:0.75rem;"><summary style="cursor:pointer;color:var(--text-muted);font-size:0.85rem;">💭 查看思考过程</summary><div style="color:var(--text-muted);font-size:0.85rem;padding:0.5rem 0;">${formatAIText(reasoningText)}</div></details>`;
+        }
+        if (fullText) {
+          html += formatAIText(fullText);
+        }
+        html += '<span class="typing-cursor"></span>';
+        aiBody.innerHTML = html;
+      }, 100);
+    }
     
     while (true) {
       const { done, value } = await reader.read();
@@ -121,16 +141,12 @@ async function requestAIReading(type) {
             if (delta.reasoning_content) {
               isReasoning = true;
               reasoningText += delta.reasoning_content;
-              aiBody.innerHTML = `<div class="ai-reasoning" style="color:var(--text-muted);font-size:0.85rem;margin-bottom:0.75rem;padding:0.5rem;border-left:2px solid var(--accent-west);opacity:0.7;"><strong>🔮 思考中...</strong><br>${formatAIText(reasoningText)}</div>` + (fullText ? formatAIText(fullText) : '') + '<span class="typing-cursor"></span>';
+              scheduleRender();
             }
             if (delta.content) {
-              if (isReasoning) {
-                // 思考结束，开始正式回答
-                aiBody.innerHTML = `<details class="ai-reasoning-toggle" style="margin-bottom:0.75rem;"><summary style="cursor:pointer;color:var(--text-muted);font-size:0.85rem;">💭 查看思考过程</summary><div style="color:var(--text-muted);font-size:0.85rem;padding:0.5rem 0;">${formatAIText(reasoningText)}</div></details>`;
-                isReasoning = false;
-              }
+              if (isReasoning) isReasoning = false;
               fullText += delta.content;
-              aiBody.innerHTML = aiBody.innerHTML.replace(/<span class="typing-cursor"><\/span>$/, '') + formatAIText(fullText) + '<span class="typing-cursor"></span>';
+              scheduleRender();
             }
           } catch (e) {
             // 忽略解析错误
@@ -138,12 +154,15 @@ async function requestAIReading(type) {
         }
       }
     }
-    
-    // 移除光标，保留思考过程（如果有的话）
-    const finalReasoning = reasoningText 
-      ? `<details class="ai-reasoning-toggle" style="margin-bottom:0.75rem;"><summary style="cursor:pointer;color:var(--text-muted);font-size:0.85rem;">💭 查看思考过程</summary><div style="color:var(--text-muted);font-size:0.85rem;padding:0.5rem 0;">${formatAIText(reasoningText)}</div></details>` 
-      : '';
-    aiBody.innerHTML = finalReasoning + formatAIText(fullText);
+
+    // 流结束，最终渲染一次（去掉光标）
+    if (renderTimer) { clearTimeout(renderTimer); renderTimer = null; }
+    let finalHtml = '';
+    if (reasoningText) {
+      finalHtml += `<details class="ai-reasoning-toggle" style="margin-bottom:0.75rem;"><summary style="cursor:pointer;color:var(--text-muted);font-size:0.85rem;">💭 查看思考过程</summary><div style="color:var(--text-muted);font-size:0.85rem;padding:0.5rem 0;">${formatAIText(reasoningText)}</div></details>`;
+    }
+    finalHtml += formatAIText(fullText);
+    aiBody.innerHTML = finalHtml;
     
   } catch (error) {
     console.error('AI 解读失败:', error);
@@ -397,9 +416,22 @@ ${cards.map((c, i) => `第${i + 1}张（${c.position}）：${c.name}${c.isRevers
   }
 }
 
-// 格式化 AI 文本（简单的 Markdown 渲染）
+// 格式化 AI 文本（轻量 Markdown 渲染）
 function formatAIText(text) {
   return text
+    // 分隔线
+    .replace(/^---$/gm, '<hr style="border:none;border-top:1px solid var(--border-color);margin:1rem 0;">')
+    // 标题 (### 和 ##)
+    .replace(/^### (.+)$/gm, '<h4 style="font-family:var(--font-display);font-size:1.05rem;margin:1.25rem 0 0.5rem;color:var(--text-primary);">$1</h4>')
+    .replace(/^## (.+)$/gm, '<h3 style="font-family:var(--font-display);font-size:1.15rem;margin:1.25rem 0 0.5rem;color:var(--text-primary);">$1</h3>')
+    // 粗体
     .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+    // 斜体
+    .replace(/\*(.*?)\*/g, '<em>$1</em>')
+    // 无序列表（- 开头）
+    .replace(/^- (.+)$/gm, '<div style="padding-left:1rem;margin:0.25rem 0;"><span style="color:var(--accent-gold);margin-right:0.5rem;">•</span>$1</div>')
+    // 有序列表（1. 2. 等）
+    .replace(/^(\d+)\. (.+)$/gm, '<div style="padding-left:1rem;margin:0.25rem 0;"><span style="color:var(--accent-gold);margin-right:0.5rem;">$1.</span>$2</div>')
+    // 换行
     .replace(/\n/g, '<br>');
 }

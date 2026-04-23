@@ -71,16 +71,16 @@
   // 获取设置（供其他模块调用）
   // 占位符由 build.sh 构建，本地开发时填写 .env 或在设置面板中配置
   const DEFAULT_SETTINGS = {
-    provider: '__AI_PROVIDER__',
-    apiKey: '__AI_API_KEY__',
-    model: '__AI_MODEL__'
+    provider: 'deepseek',
+    apiKey: 'sk-c832cfbc3dad4fa3965e6178f647aecb',
+    model: 'deepseek-reasoner'
   };
 
   window.getAppSettings = function() {
     const saved = JSON.parse(localStorage.getItem('divination-settings') || '{}');
     const merged = { ...DEFAULT_SETTINGS, ...saved };
-    // 如果占位符未被替换，且用户也没配，则清空 apiKey 防止无效请求
-    if (merged.apiKey === '__AI_API_KEY__' && !saved.apiKey) {
+    // 占位符检测（仅 __AI_API_KEY__ 未被替换时才清空）
+    if (DEFAULT_SETTINGS.apiKey === '__AI_API_KEY__' && !saved.apiKey) {
       merged.apiKey = '';
     }
     return merged;

@@ -46,6 +46,11 @@ function navigateTo(pageName) {
     if (pageName === 'astrology') { resetAstrology(); initAstroDatePicker(); }
     if (pageName === 'bazi') { resetBazi(); initBaziShichen(); }
     
+    // 回到首页时刷新今日神谕卡片状态
+    if (pageName === 'home' && typeof DailyOracle !== 'undefined') {
+      DailyOracle.renderHomeCard();
+    }
+    
     // 滚动到顶部
     window.scrollTo(0, 0);
 

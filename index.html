@@ -97,14 +97,6 @@
     </div>
   </nav>
 
-  <!-- 每日神谕详情弹层 -->
-  <div class="daily-overlay" id="daily-overlay">
-    <div class="daily-overlay-bg" onclick="DailyOracle.closeDetail()"></div>
-    <div class="daily-detail-scroll">
-      <div class="daily-detail-content" id="daily-detail-content"></div>
-    </div>
-  </div>
-
   <!-- ===== 首页 ===== -->
   <div class="page active" id="page-home">
     <div class="home-page">
@@ -524,6 +516,14 @@
           <div class="ai-reading-body" id="bazi-ai-body"></div>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- 每日神谕详情弹层（放最末尾确保在最上层） -->
+  <div class="daily-overlay" id="daily-overlay">
+    <div class="daily-overlay-bg" onclick="DailyOracle.closeDetail()"></div>
+    <div class="daily-detail-scroll">
+      <div class="daily-detail-content" id="daily-detail-content"></div>
     </div>
   </div>
 
