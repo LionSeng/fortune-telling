@@ -5,11 +5,33 @@
 
 const DailyOracle = {
   STORAGE_KEY: 'divination-daily',
-  CACHE_VERSION: 3, // 缓存版本号，格式变更时递增以强制刷新
+  USER_ID_KEY: 'divination-user-id',
+  CACHE_VERSION: 4, // 缓存版本号，格式变更时递增以强制刷新（加入用户ID后必须递增）
   ICING_SEED: 42,   // 周易偏移种子
   TAROT_SEED: 137,   // 塔罗偏移种子
 
-  // 基于日期字符串的简单哈希
+  // 获取/生成用户唯一 ID（存 localStorage，确保每人每天结果不同）
+  _getUserId() {
+    let uid = localStorage.getItem(this.USER_ID_KEY);
+    if (!uid) {
+      uid = 'u_' + Date.now().toString(36) + '_' + Math.random().toString(36).substring(2, 10);
+      localStorage.setItem(this.USER_ID_KEY, uid);
+    }
+    return uid;
+  },
+
+  // 基于字符串的简单哈希
+  _hashStr(str) {
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      const ch = str.charCodeAt(i);
+      hash = ((hash << 5) - hash) + ch;
+      hash |= 0;
+    }
+    return Math.abs(hash);
+  },
+
+  // 基于日期字符串的简单哈希（保留兼容）
   _hashDate(dateStr) {
     let hash = 0;
     for (let i = 0; i < dateStr.length; i++) {
@@ -49,14 +71,16 @@ const DailyOracle = {
   // 生成今日占卜结果（确定性）
   async generate() {
     const today = this._todayStr();
-    const cache = this._loadCache();
+    const userId = this._getUserId();
 
-    // 缓存命中（需版本号匹配）
+    // 缓存命中（需版本号匹配 + 日期匹配）
+    const cache = this._loadCache();
     if (cache.version === this.CACHE_VERSION && cache.date === today && cache.iching && cache.tarot) {
       return cache;
     }
 
-    const baseHash = this._hashDate(today);
+    // 日期 + 用户ID 的组合哈希，确保每人每天结果不同
+    const baseHash = this._hashStr(today + userId);
 
     // --- 周易：基于日期确定性选卦 ---
     let ichingData;
