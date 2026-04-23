@@ -331,7 +331,7 @@ const DailyOracle = {
         <!-- 操作按钮 -->
         <div class="daily-actions">
           <button class="btn-primary btn-ghost" onclick="DailyOracle.closeDetail()">关闭</button>
-          <button class="btn-primary btn-ghost" onclick="shareResult('daily-detail-content')">📤 分享</button>
+          <button class="btn-primary btn-ghost" onclick="DailyOracle.shareDaily()">📤 分享</button>
           <button class="btn-primary btn-ai" onclick="requestAIReading('daily')">🔮 AI 深度解读</button>
         </div>
 
@@ -360,6 +360,220 @@ const DailyOracle = {
     return html;
   },
 
+  // 用原生 Canvas 绘制今日神谕分享图（不依赖 html2canvas）
+  async shareDaily() {
+    const cache = this._loadCache();
+    if (!cache.iching || !cache.tarot) {
+      showToast('暂无可分享的内容', 'error');
+      return;
+    }
+
+    showToast('正在生成分享图片...', '');
+
+    try {
+      const W = 750;   // canvas 宽度
+      const padding = 40;
+      const lineH = 32;
+      let y = padding;
+
+      const canvas = document.createElement('canvas');
+      canvas.width = W;
+      // 先估算高度
+      const fortuneText = cache.fortune || '';
+      const adviceText = cache.iching.advice || '';
+      const kwArr = cache.iching.keywords || [];
+      const tarotLines = cache.tarot.map(t => {
+        const orient = t.isReversed ? '（逆位）' : '（正位）';
+        return `${t.symbol} ${t.name}${orient} — ${t.reading}`;
+      });
+
+      // 估算总高度
+      let estH = padding * 2 + 60 + 30 + fortuneText.length > 40 ? 80 : 50
+        + 40 + 50 + 20 + lineH * 2 + lineH  // 卦象区域
+        + 40 + 50 + tarotLines.length * 70  // 塔罗区域
+        + 30 + 60  // 关键词
+        + 80;  // 底部水印
+      canvas.height = Math.max(estH, 900);
+
+      const ctx = canvas.getContext('2d');
+
+      // --- 背景 ---
+      ctx.fillStyle = '#0f0f1a';
+      ctx.fillRect(0, 0, W, canvas.height);
+
+      // --- 顶部装饰线 ---
+      const grad = ctx.createLinearGradient(W * 0.2, 0, W * 0.8, 0);
+      grad.addColorStop(0, 'rgba(212,168,70,0)');
+      grad.addColorStop(0.5, 'rgba(212,168,70,0.6)');
+      grad.addColorStop(1, 'rgba(212,168,70,0)');
+      ctx.strokeStyle = grad;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(W * 0.1, y);
+      ctx.lineTo(W * 0.9, y);
+      ctx.stroke();
+      y += 30;
+
+      // --- 日期 ---
+      ctx.textAlign = 'center';
+      ctx.font = '24px sans-serif';
+      ctx.fillStyle = '#888';
+      ctx.fillText(this._formatDate(cache.date), W / 2, y);
+      y += 45;
+
+      // --- 标题 ---
+      ctx.font = 'bold 36px sans-serif';
+      ctx.fillStyle = '#d4a853';
+      ctx.fillText('✦ 今日神谕 ✦', W / 2, y);
+      y += 40;
+
+      // --- 综合寄语 ---
+      const fortuneGrad = ctx.createLinearGradient(padding, 0, W - padding, 0);
+      fortuneGrad.addColorStop(0, 'rgba(212,168,70,0.05)');
+      fortuneGrad.addColorStop(0.5, 'rgba(212,168,70,0.1)');
+      fortuneGrad.addColorStop(1, 'rgba(212,168,70,0.05)');
+      ctx.fillStyle = fortuneGrad;
+      roundRect(ctx, padding, y, W - padding * 2, 70, 12);
+      ctx.fill();
+
+      ctx.font = '22px sans-serif';
+      ctx.fillStyle = '#e0d0b0';
+      const fortuneLines = wrapText(ctx, fortuneText, W - padding * 2 - 40);
+      fortuneLines.forEach(line => {
+        y += 30;
+        ctx.fillText(line, W / 2, y);
+      });
+      y += 50;
+
+      // --- 周易卦象 ---
+      ctx.font = 'bold 26px sans-serif';
+      ctx.fillStyle = '#d4a853';
+      ctx.textAlign = 'left';
+      ctx.fillText(`☯ 第${cache.iching.number}卦 · ${cache.iching.name}`, padding, y);
+      y += 35;
+
+      ctx.font = '20px sans-serif';
+      ctx.fillStyle = '#999';
+      ctx.fillText(`${cache.iching.english}  ·  ${cache.iching.meaning}`, padding, y);
+      y += 30;
+
+      ctx.font = '18px sans-serif';
+      ctx.fillStyle = '#ccc';
+      ctx.fillText(`卦辞：${cache.iching.judgment}`, padding, y);
+      y += 28;
+      ctx.fillText(`象辞：${cache.iching.image}`, padding, y);
+      y += 35;
+
+      ctx.font = 'bold 20px sans-serif';
+      ctx.fillStyle = '#e0c080';
+      ctx.fillText(`🎯 今日建议：${cache.iching.advice}`, padding, y);
+      y += 50;
+
+      // --- 塔罗双牌 ---
+      const cardW = (W - padding * 2 - 20) / 2;
+      cache.tarot.forEach((card, idx) => {
+        const cx = padding + idx * (cardW + 20);
+        const orient = card.isReversed ? '（逆位）' : '（正位）';
+
+        // 卡片背景
+        ctx.fillStyle = 'rgba(255,255,255,0.04)';
+        roundRect(ctx, cx, y, cardW, 160, 12);
+        ctx.fill();
+        if (card.isReversed) {
+          ctx.strokeStyle = 'rgba(197,61,67,0.3)';
+          ctx.lineWidth = 1;
+          roundRect(ctx, cx, y, cardW, 160, 12);
+          ctx.stroke();
+        }
+
+        // 位置标签
+        ctx.textAlign = 'center';
+        ctx.font = '16px sans-serif';
+        ctx.fillStyle = '#888';
+        ctx.fillText(card.position, cx + cardW / 2, y + 22);
+
+        // 符号
+        ctx.font = '36px sans-serif';
+        ctx.fillText(card.symbol, cx + cardW / 2, y + 65);
+
+        // 牌名
+        ctx.font = 'bold 20px sans-serif';
+        ctx.fillStyle = card.isReversed ? '#c53d43' : '#d4a853';
+        ctx.fillText(`${card.name}${orient}`, cx + cardW / 2, y + 95);
+
+        // 解读
+        ctx.font = '16px sans-serif';
+        ctx.fillStyle = '#aaa';
+        const readingLines = wrapText(ctx, card.reading, cardW - 20);
+        readingLines.slice(0, 3).forEach((line, li) => {
+          ctx.fillText(line, cx + cardW / 2, y + 125 + li * 24);
+        });
+      });
+      y += 180;
+
+      // --- 关键词 ---
+      if (kwArr.length > 0) {
+        ctx.textAlign = 'center';
+        ctx.font = '16px sans-serif';
+        const kwText = kwArr.map(k => `#${k}`).join('  ');
+        const kwLines = wrapText(ctx, kwText, W - padding * 2 - 40);
+        kwLines.forEach(line => {
+          ctx.fillStyle = '#7a6a50';
+          ctx.fillText(line, W / 2, y);
+          y += 24;
+        });
+        y += 20;
+      }
+
+      // --- 底部水印 ---
+      y += 10;
+      const btmGrad = ctx.createLinearGradient(W * 0.2, 0, W * 0.8, 0);
+      btmGrad.addColorStop(0, 'rgba(212,168,70,0)');
+      btmGrad.addColorStop(0.5, 'rgba(212,168,70,0.4)');
+      btmGrad.addColorStop(1, 'rgba(212,168,70,0)');
+      ctx.strokeStyle = btmGrad;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(W * 0.15, y);
+      ctx.lineTo(W * 0.85, y);
+      ctx.stroke();
+      y += 30;
+
+      ctx.font = 'bold 22px sans-serif';
+      ctx.fillStyle = '#d4a853';
+      ctx.fillText('神谕占卜台', W / 2, y);
+      y += 24;
+      ctx.font = '14px sans-serif';
+      ctx.fillStyle = '#666';
+      ctx.fillText('Oracle Divination', W / 2, y);
+
+      // 裁剪多余空白
+      const imageData = ctx.getImageData(0, Math.max(0, canvas.height - 50), W, 50);
+      // 如果底部是纯背景色，裁剪掉
+      let trimmed = canvas.height;
+      for (let row = canvas.height - 1; row > y + 10; row--) {
+        const px = ctx.getImageData(0, row, W, 1).data;
+        let allBg = true;
+        for (let i = 0; i < px.length; i += 4) {
+          if (px[i] !== 15 || px[i+1] !== 15 || px[i+2] !== 26) { allBg = false; break; }
+        }
+        if (!allBg) { trimmed = row + 20; break; }
+      }
+
+      const finalCanvas = document.createElement('canvas');
+      finalCanvas.width = W;
+      finalCanvas.height = trimmed;
+      finalCanvas.getContext('2d').drawImage(canvas, 0, 0, W, trimmed);
+
+      const dataUrl = finalCanvas.toDataURL('image/png');
+      showSharePanel(dataUrl);
+
+    } catch (err) {
+      console.error('[DailyOracle] shareDaily error:', err);
+      showToast('生成分享图片失败', 'error');
+    }
+  },
+
   // 关闭详情
   closeDetail() {
     const overlay = document.getElementById('daily-overlay');
@@ -376,3 +590,35 @@ const DailyOracle = {
 document.addEventListener('DOMContentLoaded', () => {
   DailyOracle.init();
 });
+
+// Canvas 辅助函数
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+function wrapText(ctx, text, maxWidth) {
+  if (!text) return [''];
+  const lines = [];
+  let current = '';
+  for (let i = 0; i < text.length; i++) {
+    const test = current + text[i];
+    if (ctx.measureText(test).width > maxWidth && current.length > 0) {
+      lines.push(current);
+      current = text[i];
+    } else {
+      current = test;
+    }
+  }
+  if (current) lines.push(current);
+  return lines;
+}
